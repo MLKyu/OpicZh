@@ -79,7 +79,6 @@ class ModelRecommender @Inject constructor(
         val fileName: String,
         val fileSizeBytes: Long?,
         val paramsB: Double,
-        val needsToken: Boolean,
         val downloads: Long,
         val daysSinceUpdate: Long?,
         val score: Double,
@@ -90,7 +89,7 @@ class ModelRecommender @Inject constructor(
                 ?: (paramsB * 620).toInt() // int4 대략치
     }
 
-    suspend fun recommend(hasHfToken: Boolean): AppResult<RecommendationRecord> =
+    suspend fun recommend(): AppResult<RecommendationRecord> =
         withContext(Dispatchers.IO) {
             try {
                 val repos = fetchRepoList()
@@ -100,7 +99,7 @@ class ModelRecommender @Inject constructor(
                     )
                 }
 
-                val candidates = repos.mapNotNull { toCandidate(it, hasHfToken) }
+                val candidates = repos.mapNotNull { toCandidate(it) }
                 if (candidates.isEmpty()) {
                     return@withContext AppResult.failure(
                         AppError.Unknown("조건에 맞는 .litertlm 모델을 찾지 못했습니다"),
@@ -177,9 +176,12 @@ class ModelRecommender @Inject constructor(
         return candidate.copy(fileSizeBytes = size)
     }
 
-    private fun toCandidate(dto: HfModelDto, hasHfToken: Boolean): Candidate? {
+    private fun toCandidate(dto: HfModelDto): Candidate? {
         val repoId = dto.repoId
         if (repoId.isBlank() || !ModelScoring.isChatLlmRepo(repoId)) return null
+        // 게이트(라이선스 동의·토큰 필요) 모델은 무조건 제외 — 이 앱은 HF 토큰을 쓰지 않는다.
+        // litert-community의 최상위 모델(Qwen3·Gemma 4 등)이 전부 토큰 불필요라 손해가 없다.
+        if (dto.needsToken) return null
 
         val files = dto.siblings.orEmpty().map { it.rfilename to it.size }
         val picked = ModelScoring.pickBestFile(files) ?: return null
@@ -199,8 +201,6 @@ class ModelRecommender @Inject constructor(
             ModelScoring.ScoreInput(
                 repoId = repoId,
                 paramsB = paramsB,
-                gatedNeedsToken = dto.needsToken,
-                hasHfToken = hasHfToken,
                 downloads = dto.downloads ?: 0,
                 daysSinceUpdate = daysSinceUpdate,
                 isInstruct = ModelScoring.isInstructName(repoId),
@@ -212,7 +212,6 @@ class ModelRecommender @Inject constructor(
             fileName = picked.first,
             fileSizeBytes = picked.second,
             paramsB = paramsB,
-            needsToken = dto.needsToken,
             downloads = dto.downloads ?: 0,
             daysSinceUpdate = daysSinceUpdate,
             score = score,
@@ -226,8 +225,7 @@ class ModelRecommender @Inject constructor(
 
         val table = top.joinToString("\n") { c ->
             "- ${c.repoId} | 약 ${c.paramsB}B | 파일 ${c.approxSizeMb}MB | " +
-                "다운로드 ${c.downloads}회 | ${c.daysSinceUpdate ?: "?"}일 전 갱신 | " +
-                if (c.needsToken) "게이트(토큰 필요)" else "공개"
+                "다운로드 ${c.downloads}회 | ${c.daysSinceUpdate ?: "?"}일 전 갱신 | 무료·공개"
         }
         val schema = buildJsonObject {
             put("type", "OBJECT")
@@ -248,13 +246,14 @@ class ModelRecommender @Inject constructor(
             - 모델 임무: ① 간체 중국어로 자연스러운 회화 상대·모범답안 생성(가장 중요)
                         ② 한국어로 문법 교정 팁·설명 작성(필수) ③ JSON 등 지시 이행
             - 기기: 갤럭시 S26 울트라 (RAM 12GB+), int4 양자화 실행
-            - 선택 기준: 중국어 품질 > 한국어 품질 > 크기 적합성(3~5B 스위트스팟) > 최신성
+            - 비용: 온디바이스라 추론 과금은 없음. 다운로드 접근성이 중요 — 무료·공개 모델을 우선한다.
+            - 선택 기준: (무료/공개 우선) → 중국어 품질 > 한국어 품질 > 크기 적합성(3~5B 스위트스팟) > 최신성
 
             [후보]
             $table
 
             위 후보 중 최적 모델 하나를 고르고, 사용자에게 보여줄 추천 사유를
-            한국어 2~3문장으로 작성하세요 (중국어·한국어 능력과 기기 적합성 언급).
+            한국어 2~3문장으로 작성하세요 (중국어·한국어 능력과 기기 적합성, 무료 여부를 언급).
         """.trimIndent()
 
         val reply = gemini.generate(
@@ -276,18 +275,17 @@ class ModelRecommender @Inject constructor(
     private fun heuristicReason(c: Candidate): String {
         val family = ModelScoring.detectFamily(c.repoId)
         return "${c.repoId.substringAfter('/')}는 중국어 성능(${family.zh}/10)과 한국어 설명 능력(${family.ko}/10)이 " +
-            "현재 후보 중 가장 균형 잡힌 ${c.paramsB}B 모델로, int4(${c.approxSizeMb}MB)로 " +
+            "현재 후보 중 가장 균형 잡힌 ${c.paramsB}B 모델로, ${c.approxSizeMb}MB(무료·토큰 불필요)로 " +
             "S26 울트라에서 쾌적하게 구동됩니다."
     }
 
     private fun Candidate.toSpec(): OnDeviceModelSpec = OnDeviceModelSpec(
         id = repoId.substringAfter('/').lowercase(),
         displayName = repoId.substringAfter('/'),
-        description = "AI 추천 모델 · HuggingFace $repoId",
+        description = "AI 추천 · 무료·토큰 불필요 · $repoId",
         url = url,
         fileName = fileName,
         approxSizeMb = approxSizeMb,
-        requiresHfToken = needsToken,
     )
 
     private companion object {

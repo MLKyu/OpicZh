@@ -18,6 +18,7 @@ object ModelScoring {
         FamilyProfile("qwen2.5", zh = 9.5, ko = 7.0),
         // R1 distill 계열은 사고 사슬(<think>)을 뱉어 회화 UX에 부적합
         FamilyProfile("deepseek", zh = 8.5, ko = 5.0, penalty = 2.0),
+        FamilyProfile("gemma-4", zh = 8.5, ko = 9.0),
         FamilyProfile("gemma-3n", zh = 8.0, ko = 8.5),
         FamilyProfile("gemma", zh = 7.0, ko = 7.5),
         FamilyProfile("exaone", zh = 6.5, ko = 9.5),
@@ -33,9 +34,9 @@ object ModelScoring {
         "(?i)(asr|embed|reranker|ocr|tts|whisper|guard|hammer|coder|function|-pt$|-pt-)",
     )
 
-    /** 기기 특화/웹용 파일 변형 제외 */
+    /** 기기 특화(칩셋)/웹용 파일 변형 제외 — 범용 int4 파일만 남긴다 */
     private val EXCLUDE_FILE = Regex(
-        "(?i)(mt\\d{4}|sm\\d{4}|mediatek|qualcomm|tensor_g|_g5|web|f32)",
+        "(?i)(mt\\d{4}|sm\\d{4}|mediatek|qualcomm|tensor_g|_g5|intel|_lnl|_ptl|web|f32)",
     )
 
     fun isChatLlmRepo(repoId: String): Boolean = !EXCLUDE_REPO.containsMatchIn(repoId)
@@ -46,6 +47,7 @@ object ModelScoring {
             "qwen3" in lower -> profile("qwen3")
             "qwen2.5" in lower || "qwen2_5" in lower -> profile("qwen2.5")
             "deepseek" in lower -> profile("deepseek")
+            "gemma-4" in lower || "gemma4" in lower -> profile("gemma-4")
             "gemma-3n" in lower || "gemma3n" in lower -> profile("gemma-3n")
             "gemma" in lower -> profile("gemma")
             "exaone" in lower -> profile("exaone")
@@ -78,8 +80,6 @@ object ModelScoring {
     data class ScoreInput(
         val repoId: String,
         val paramsB: Double,
-        val gatedNeedsToken: Boolean,
-        val hasHfToken: Boolean,
         val downloads: Long,
         val daysSinceUpdate: Long?,
         val isInstruct: Boolean,
@@ -96,7 +96,6 @@ object ModelScoring {
             else -> 0.0
         }
         val popularity = minOf(kotlin.math.log10(input.downloads + 1.0), 6.0) * 0.25
-        val tokenPenalty = if (input.gatedNeedsToken && !input.hasHfToken) 1.5 else 0.0
         val instructBonus = if (input.isInstruct) 0.8 else 0.0
 
         return language * 0.8 +
@@ -104,7 +103,6 @@ object ModelScoring {
             instructBonus +
             recency +
             popularity -
-            tokenPenalty -
             profile.penalty
     }
 
