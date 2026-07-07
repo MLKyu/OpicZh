@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.navigation/
+
+# 로컬 환경 (SDK 경로 등 — 커밋 금지)
+local.properties
+
+# 네이티브 빌드
+.externalNativeBuild/
+.cxx/
+
+# 서명 키 (커밋 금지)
+*.jks
+*.keystore
+
+# 기타
+.DS_Store
+*.hprof
+*.log
