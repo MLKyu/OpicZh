@@ -3,6 +3,7 @@ package com.mingeek.opiczh.core.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.mingeek.opiczh.core.common.RemoteTuning
 import com.mingeek.opiczh.core.data.security.ApiKeyCipher
@@ -32,6 +33,7 @@ class SettingsRepository @Inject constructor(
         val TTS_MODEL_ID = stringPreferencesKey("tts_model_id")
         val TTS_VOICE = stringPreferencesKey("tts_voice")
         val ROUTING_POLICY = stringPreferencesKey("routing_policy")
+        val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
     }
 
     val settings: Flow<AppSettings> = dataStore.data.map { prefs ->
@@ -82,6 +84,15 @@ class SettingsRepository @Inject constructor(
 
     suspend fun clearHfToken() {
         dataStore.edit { it.remove(Keys.HF_TOKEN_ENCRYPTED) }
+    }
+
+    /** 마지막 백업 내보내기 완료 시각 (epoch ms) */
+    val lastBackupAt: Flow<Long?> = dataStore.data.map { prefs ->
+        prefs[Keys.LAST_BACKUP_AT]
+    }.distinctUntilChanged()
+
+    suspend fun markBackupDone() {
+        dataStore.edit { it[Keys.LAST_BACKUP_AT] = System.currentTimeMillis() }
     }
 
     suspend fun setTargetGrade(grade: TargetGrade) {
