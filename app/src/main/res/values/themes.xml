@@ -1,0 +1,9 @@
+<resources>
+
+    <style name="Theme.OpicZh" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Android 12+ 스플래시: 홍색 배경 + 크림 원 안의 브랜드 글리프 -->
+        <item name="android:windowSplashScreenBackground">#A93A24</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#FFF8F6</item>
+    </style>
+</resources>

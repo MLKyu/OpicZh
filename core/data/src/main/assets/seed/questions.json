@@ -1,0 +1,108 @@
+{
+  "topics": [
+    { "id": "self_intro", "nameKo": "자기소개", "nameZh": "自我介绍", "survey": true },
+    { "id": "home", "nameKo": "거주지", "nameZh": "居住", "survey": true },
+    { "id": "company", "nameKo": "직장·회사", "nameZh": "工作", "survey": true },
+    { "id": "music", "nameKo": "음악 감상", "nameZh": "听音乐", "survey": true },
+    { "id": "movie", "nameKo": "영화 보기", "nameZh": "看电影", "survey": true },
+    { "id": "park", "nameKo": "공원 가기", "nameZh": "去公园", "survey": true },
+    { "id": "walking", "nameKo": "걷기·산책", "nameZh": "散步", "survey": true },
+    { "id": "travel_kr", "nameKo": "국내여행", "nameZh": "国内旅行", "survey": true },
+    { "id": "travel_abroad", "nameKo": "해외여행", "nameZh": "海外旅行", "survey": true },
+    { "id": "cafe", "nameKo": "카페 가기", "nameZh": "去咖啡厅", "survey": true },
+    { "id": "ux_transport", "nameKo": "돌발: 교통", "nameZh": "交通", "survey": false },
+    { "id": "ux_weather", "nameKo": "돌발: 날씨·계절", "nameZh": "天气", "survey": false },
+    { "id": "ux_food", "nameKo": "돌발: 음식", "nameZh": "饮食", "survey": false },
+    { "id": "ux_phone", "nameKo": "돌발: 휴대폰·인터넷", "nameZh": "手机与网络", "survey": false },
+    { "id": "rp_movie", "nameKo": "롤플레이: 영화 예매", "nameZh": "订电影票", "survey": false },
+    { "id": "rp_travel", "nameKo": "롤플레이: 여행 예약", "nameZh": "预订旅行", "survey": false },
+    { "id": "rp_invite", "nameKo": "롤플레이: 친구 초대", "nameZh": "邀请朋友", "survey": false },
+    { "id": "rp_shopping", "nameKo": "롤플레이: 쇼핑·교환", "nameZh": "购物与换货", "survey": false }
+  ],
+  "questions": [
+    { "id": "intro_3", "topicId": "self_intro", "type": "SELF_INTRODUCTION", "difficulty": 3, "zh": "我们开始面谈吧。请先介绍一下你自己。", "ko": "면접을 시작하겠습니다. 먼저 자기소개를 해 주세요." },
+    { "id": "intro_4", "topicId": "self_intro", "type": "SELF_INTRODUCTION", "difficulty": 4, "zh": "我们开始面谈吧。请详细介绍一下你自己，比如你的工作、家人或者你的兴趣爱好。", "ko": "면접을 시작하겠습니다. 직업, 가족, 취미 등을 포함해 자신을 자세히 소개해 주세요." },
+
+    { "id": "home_desc_2", "topicId": "home", "type": "DESCRIPTION", "difficulty": 2, "zh": "你住在什么样的地方？请简单介绍一下你的家。", "ko": "어떤 곳에 살고 있나요? 집을 간단히 소개해 주세요." },
+    { "id": "home_desc_3", "topicId": "home", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你住在公寓。请描述一下你住的家是什么样子的。家里有几个房间？你最喜欢家里的哪个地方？为什么？", "ko": "설문에서 아파트에 산다고 했습니다. 집이 어떻게 생겼는지 묘사해 주세요. 방은 몇 개인가요? 집에서 가장 좋아하는 공간과 이유는요?" },
+    { "id": "home_routine_3", "topicId": "home", "type": "ROUTINE", "difficulty": 3, "zh": "你在家的时候一般做什么？平日和周末在家做的事情有什么不一样？请详细说说。", "ko": "집에 있을 때 보통 무엇을 하나요? 평일과 주말에 하는 일이 어떻게 다른가요? 자세히 말해 주세요." },
+    { "id": "home_exp_4", "topicId": "home", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你在家里发生过的一件难忘的事情。是什么时候？发生了什么？结果怎么样？请详细讲一讲。", "ko": "집에서 있었던 잊지 못할 일을 이야기해 주세요. 언제였고 무슨 일이 있었으며 결과는 어땠나요?" },
+    { "id": "home_comp_4", "topicId": "home", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下你现在住的家和你小时候住的家。它们有什么相同点和不同点？", "ko": "지금 사는 집과 어릴 적 살던 집을 비교해 주세요. 공통점과 차이점은 무엇인가요?" },
+
+    { "id": "company_desc_3", "topicId": "company", "type": "DESCRIPTION", "difficulty": 3, "zh": "请介绍一下你工作的公司。你们公司是做什么的？在哪儿？公司的气氛怎么样？", "ko": "다니는 회사를 소개해 주세요. 무슨 일을 하는 회사이고 어디에 있나요? 회사 분위기는 어떤가요?" },
+    { "id": "company_routine_3", "topicId": "company", "type": "ROUTINE", "difficulty": 3, "zh": "请说说你平时一天的工作安排。你几点上班？上班以后一般先做什么？请按顺序详细说明。", "ko": "평소 하루 업무 일정을 말해 주세요. 몇 시에 출근하고, 출근 후 보통 무엇부터 하나요? 순서대로 설명해 주세요." },
+    { "id": "company_exp_4", "topicId": "company", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你在工作中遇到过的一件印象深刻的事情。当时发生了什么？你是怎么解决的？", "ko": "일하면서 겪은 인상 깊은 일을 이야기해 주세요. 무슨 일이 있었고 어떻게 해결했나요?" },
+    { "id": "company_comp_4", "topicId": "company", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下你现在的工作和你以前做过的工作。它们有什么不同？你更喜欢哪一个？为什么？", "ko": "지금 하는 일과 예전에 했던 일을 비교해 주세요. 어떤 점이 다르고, 어느 쪽이 더 좋으며 그 이유는요?" },
+    { "id": "company_comp_5", "topicId": "company", "type": "COMPARISON", "difficulty": 5, "zh": "最近几年，人们的工作方式发生了很大的变化，比如在家办公越来越普遍。请比较一下过去和现在的工作方式，并谈谈你对这种变化的看法。", "ko": "최근 재택근무 등 일하는 방식이 크게 바뀌었습니다. 과거와 현재의 근무 방식을 비교하고 이 변화에 대한 견해를 말해 주세요." },
+
+    { "id": "music_desc_2", "topicId": "music", "type": "DESCRIPTION", "difficulty": 2, "zh": "你喜欢听什么音乐？为什么喜欢？", "ko": "어떤 음악을 즐겨 듣나요? 좋아하는 이유는요?" },
+    { "id": "music_desc_3", "topicId": "music", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢听音乐。你喜欢什么样的音乐？喜欢哪位歌手？为什么喜欢他（她）的歌？", "ko": "설문에서 음악 감상을 좋아한다고 했습니다. 어떤 음악과 가수를 좋아하고, 그 노래를 좋아하는 이유는 무엇인가요?" },
+    { "id": "music_routine_3", "topicId": "music", "type": "ROUTINE", "difficulty": 3, "zh": "你一般什么时候听音乐？在哪儿听？用什么听？请详细说一说你听音乐的习惯。", "ko": "보통 언제, 어디서, 무엇으로 음악을 듣나요? 음악 감상 습관을 자세히 말해 주세요." },
+    { "id": "music_exp_4", "topicId": "music", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你去听过的一场演唱会或者音乐会。是什么时候？和谁一起去的？气氛怎么样？有什么难忘的事情？", "ko": "가 본 콘서트나 음악회 경험을 이야기해 주세요. 언제, 누구와 갔고 분위기와 기억에 남는 일은 무엇인가요?" },
+    { "id": "music_comp_4", "topicId": "music", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下你小时候喜欢的音乐和现在喜欢的音乐。你的音乐爱好有什么变化？为什么会有这些变化？", "ko": "어릴 때 좋아했던 음악과 지금 좋아하는 음악을 비교해 주세요. 취향이 어떻게, 왜 바뀌었나요?" },
+
+    { "id": "movie_desc_3", "topicId": "movie", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢看电影。你喜欢看什么类型的电影？请介绍一部你最喜欢的电影，并说说为什么喜欢它。", "ko": "설문에서 영화 보기를 좋아한다고 했습니다. 어떤 장르를 좋아하나요? 가장 좋아하는 영화 한 편을 소개하고 이유를 말해 주세요." },
+    { "id": "movie_routine_3", "topicId": "movie", "type": "ROUTINE", "difficulty": 3, "zh": "你一般多长时间看一次电影？常去哪家电影院？看电影以前和以后一般做什么？", "ko": "얼마나 자주 영화를 보나요? 주로 가는 영화관은 어디이며, 관람 전후에는 보통 무엇을 하나요?" },
+    { "id": "movie_exp_4", "topicId": "movie", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你最近一次去电影院看电影的经历。看了什么电影？和谁一起去的？那部电影怎么样？", "ko": "최근 영화관에서 영화를 본 경험을 이야기해 주세요. 무슨 영화를 누구와 봤고, 영화는 어땠나요?" },
+    { "id": "movie_comp_4", "topicId": "movie", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下在电影院看电影和在家看电影。它们各有什么好处和坏处？你更喜欢哪种方式？", "ko": "영화관 관람과 집에서 보는 것을 비교해 주세요. 각각의 장단점과 더 선호하는 방식은요?" },
+
+    { "id": "park_desc_2", "topicId": "park", "type": "DESCRIPTION", "difficulty": 2, "zh": "你常去的公园是什么样子的？请简单介绍一下。", "ko": "자주 가는 공원은 어떤 모습인가요? 간단히 소개해 주세요." },
+    { "id": "park_desc_3", "topicId": "park", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢去公园。请描述一下你常去的公园。那里有什么？人们在那里做什么？", "ko": "설문에서 공원 가기를 좋아한다고 했습니다. 자주 가는 공원을 묘사해 주세요. 무엇이 있고 사람들은 무엇을 하나요?" },
+    { "id": "park_routine_3", "topicId": "park", "type": "ROUTINE", "difficulty": 3, "zh": "你一般什么时候去公园？和谁一起去？在公园里通常做什么？请详细说明。", "ko": "보통 언제, 누구와 공원에 가나요? 공원에서 주로 무엇을 하는지 자세히 말해 주세요." },
+    { "id": "park_exp_4", "topicId": "park", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你在公园里发生过的一件难忘的或者有意思的事情。当时的情况怎么样？", "ko": "공원에서 있었던 잊지 못할 또는 재미있는 일을 이야기해 주세요. 당시 상황은 어땠나요?" },
+    { "id": "park_comp_4", "topicId": "park", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下你现在常去的公园和你小时候去过的公园。它们有什么不同？", "ko": "지금 자주 가는 공원과 어릴 때 갔던 공원을 비교해 주세요. 어떤 점이 다른가요?" },
+
+    { "id": "walking_desc_3", "topicId": "walking", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢散步。你一般在哪儿散步？那个地方怎么样？为什么喜欢在那儿散步？", "ko": "설문에서 산책을 좋아한다고 했습니다. 주로 어디서 산책하나요? 그곳은 어떤 곳이고 왜 좋아하나요?" },
+    { "id": "walking_routine_3", "topicId": "walking", "type": "ROUTINE", "difficulty": 3, "zh": "你多长时间散步一次？一般散步多长时间？散步的时候你喜欢做什么，比如听音乐或者打电话？", "ko": "얼마나 자주, 한 번에 얼마나 오래 산책하나요? 산책하며 음악 듣기, 통화 등 무엇을 즐겨 하나요?" },
+    { "id": "walking_exp_4", "topicId": "walking", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你散步的时候发生过的一件特别的事情。是什么时候？发生了什么？", "ko": "산책 중 있었던 특별한 일을 이야기해 주세요. 언제, 무슨 일이 있었나요?" },
+    { "id": "walking_comp_4", "topicId": "walking", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下早上散步和晚上散步。它们的感觉有什么不同？你更喜欢什么时候散步？为什么？", "ko": "아침 산책과 저녁 산책을 비교해 주세요. 느낌이 어떻게 다르고 언제를 더 좋아하며 이유는요?" },
+
+    { "id": "travelkr_desc_3", "topicId": "travel_kr", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢国内旅行。请介绍一个你喜欢的国内旅行城市。那里有什么好玩儿的地方？", "ko": "설문에서 국내여행을 좋아한다고 했습니다. 좋아하는 국내 여행지를 소개해 주세요. 어떤 볼거리가 있나요?" },
+    { "id": "travelkr_routine_3", "topicId": "travel_kr", "type": "ROUTINE", "difficulty": 3, "zh": "你去旅行以前一般做什么准备？比如订酒店、查资料。请按顺序详细说一说。", "ko": "여행 전 보통 어떤 준비를 하나요? 호텔 예약, 자료 검색 등 순서대로 자세히 말해 주세요." },
+    { "id": "travelkr_exp_4", "topicId": "travel_kr", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你最近一次国内旅行的经历。你去了哪儿？和谁一起去的？做了什么？有什么难忘的事情？", "ko": "최근 국내여행 경험을 이야기해 주세요. 어디에 누구와 갔고 무엇을 했으며 기억에 남는 일은요?" },
+    { "id": "travelkr_comp_4", "topicId": "travel_kr", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下一个人旅行和跟家人朋友一起旅行。它们各有什么好处？你更喜欢哪种？", "ko": "혼자 여행과 가족·친구와 함께하는 여행을 비교해 주세요. 각각의 장점과 선호를 말해 주세요." },
+
+    { "id": "travelab_desc_3", "topicId": "travel_abroad", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢海外旅行。请介绍一个你去过的或者想去的国家。那个国家怎么样？", "ko": "설문에서 해외여행을 좋아한다고 했습니다. 가 봤거나 가고 싶은 나라를 소개해 주세요. 그 나라는 어떤가요?" },
+    { "id": "travelab_exp_4", "topicId": "travel_abroad", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你的一次海外旅行经历。你去了哪个国家？在那里发生过什么有意思的或者困难的事情？", "ko": "해외여행 경험을 이야기해 주세요. 어느 나라에 갔고, 재미있었던 일이나 어려웠던 일은 무엇인가요?" },
+    { "id": "travelab_comp_4", "topicId": "travel_abroad", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下国内旅行和海外旅行。它们有什么不同？各有什么好处和坏处？", "ko": "국내여행과 해외여행을 비교해 주세요. 어떤 차이가 있고 각각 장단점은 무엇인가요?" },
+    { "id": "travelab_comp_5", "topicId": "travel_abroad", "type": "COMPARISON", "difficulty": 5, "zh": "和过去相比，现在人们的旅行方式有了很大的变化，比如用手机预订、自由行越来越多。请比较过去和现在的旅行方式，并说说产生这些变化的原因。", "ko": "과거와 비교해 모바일 예약, 자유여행 확산 등 여행 방식이 크게 변했습니다. 과거와 현재를 비교하고 변화의 원인을 설명해 주세요." },
+    { "id": "travelab_routine_3", "topicId": "travel_abroad", "type": "ROUTINE", "difficulty": 3, "zh": "你出国旅行以前一般怎么做准备？要办什么手续？带什么东西？请详细说明。", "ko": "해외여행 전에는 보통 어떻게 준비하나요? 어떤 절차가 필요하고 무엇을 챙기나요?" },
+
+    { "id": "cafe_desc_3", "topicId": "cafe", "type": "DESCRIPTION", "difficulty": 3, "zh": "你在调查问卷中说你喜欢去咖啡厅。请描述一下你常去的咖啡厅。那里的环境和饮料怎么样？", "ko": "설문에서 카페 가기를 좋아한다고 했습니다. 자주 가는 카페를 묘사해 주세요. 분위기와 음료는 어떤가요?" },
+    { "id": "cafe_routine_3", "topicId": "cafe", "type": "ROUTINE", "difficulty": 3, "zh": "你一般什么时候去咖啡厅？和谁一起去？在咖啡厅里通常做什么？", "ko": "보통 언제, 누구와 카페에 가나요? 카페에서 주로 무엇을 하나요?" },
+    { "id": "cafe_exp_4", "topicId": "cafe", "type": "EXPERIENCE", "difficulty": 4, "zh": "请谈谈你在咖啡厅里发生过的一件难忘的事情。当时发生了什么？", "ko": "카페에서 있었던 잊지 못할 일을 이야기해 주세요. 무슨 일이 있었나요?" },
+    { "id": "cafe_comp_4", "topicId": "cafe", "type": "COMPARISON", "difficulty": 4, "zh": "请比较一下在咖啡厅喝咖啡和在家喝咖啡。它们有什么不同？你更喜欢哪种？为什么？", "ko": "카페에서 커피 마시기와 집에서 마시기를 비교해 주세요. 무엇이 다르고 어느 쪽을 왜 더 좋아하나요?" },
+
+    { "id": "uxtrans_1", "topicId": "ux_transport", "type": "UNEXPECTED", "difficulty": 4, "zh": "请介绍一下你们国家的交通工具。人们一般坐什么上下班？你常用的交通工具是什么？", "ko": "당신 나라의 교통수단을 소개해 주세요. 사람들은 주로 무엇으로 출퇴근하고, 당신이 자주 쓰는 교통수단은요?" },
+    { "id": "uxtrans_2", "topicId": "ux_transport", "type": "UNEXPECTED", "difficulty": 4, "zh": "请谈谈你坐地铁或者公共汽车的时候发生过的一件难忘的事情。当时发生了什么？", "ko": "지하철이나 버스에서 있었던 잊지 못할 일을 이야기해 주세요. 무슨 일이 있었나요?" },
+    { "id": "uxtrans_3", "topicId": "ux_transport", "type": "UNEXPECTED", "difficulty": 4, "zh": "请比较一下过去和现在的交通情况。跟以前相比，现在的交通有了哪些变化？", "ko": "과거와 현재의 교통 상황을 비교해 주세요. 예전과 비교해 어떤 변화가 있나요?" },
+
+    { "id": "uxweather_1", "topicId": "ux_weather", "type": "UNEXPECTED", "difficulty": 4, "zh": "请介绍一下你们国家的季节。一年有几个季节？每个季节的天气怎么样？你最喜欢哪个季节？", "ko": "당신 나라의 계절을 소개해 주세요. 계절이 몇 개이고 날씨는 어떤가요? 가장 좋아하는 계절은요?" },
+    { "id": "uxweather_2", "topicId": "ux_weather", "type": "UNEXPECTED", "difficulty": 4, "zh": "请谈谈因为天气问题你遇到过的一件麻烦的事情。比如下大雨或者下大雪的时候。你是怎么解决的？", "ko": "날씨 때문에 겪은 곤란했던 일을 이야기해 주세요. 폭우나 폭설 때 등이요. 어떻게 해결했나요?" },
+    { "id": "uxweather_3", "topicId": "ux_weather", "type": "UNEXPECTED", "difficulty": 4, "zh": "请比较一下你们国家的夏天和冬天。人们在这两个季节分别喜欢做什么活动？", "ko": "당신 나라의 여름과 겨울을 비교해 주세요. 두 계절에 사람들은 각각 어떤 활동을 즐기나요?" },
+
+    { "id": "uxfood_1", "topicId": "ux_food", "type": "UNEXPECTED", "difficulty": 4, "zh": "请介绍一下你们国家有名的菜。是用什么做的？味道怎么样？你为什么喜欢它？", "ko": "당신 나라의 유명한 음식을 소개해 주세요. 무엇으로 만들고 맛은 어떤가요? 좋아하는 이유는요?" },
+    { "id": "uxfood_2", "topicId": "ux_food", "type": "UNEXPECTED", "difficulty": 4, "zh": "请谈谈你在饭馆吃饭的时候发生过的一件难忘的事情。当时发生了什么？", "ko": "식당에서 밥을 먹다가 있었던 잊지 못할 일을 이야기해 주세요. 무슨 일이 있었나요?" },
+    { "id": "uxfood_3", "topicId": "ux_food", "type": "UNEXPECTED", "difficulty": 4, "zh": "请比较一下在家做饭吃和在外面饭馆吃饭。它们各有什么好处和坏处？", "ko": "집밥과 외식을 비교해 주세요. 각각 어떤 장단점이 있나요?" },
+
+    { "id": "uxphone_1", "topicId": "ux_phone", "type": "UNEXPECTED", "difficulty": 4, "zh": "现在人们每天都离不开手机。你一般用手机做什么？请详细说一说。", "ko": "요즘 사람들은 휴대폰 없이 살 수 없죠. 당신은 휴대폰으로 주로 무엇을 하나요? 자세히 말해 주세요." },
+    { "id": "uxphone_2", "topicId": "ux_phone", "type": "UNEXPECTED", "difficulty": 4, "zh": "请谈谈你的手机出过问题的一次经历。比如丢了或者坏了。当时你是怎么解决的？", "ko": "휴대폰에 문제가 생겼던 경험을 이야기해 주세요. 분실이나 고장 등이요. 어떻게 해결했나요?" },
+    { "id": "uxphone_3", "topicId": "ux_phone", "type": "UNEXPECTED", "difficulty": 4, "zh": "请比较一下过去和现在人们使用手机的情况。跟以前相比有了哪些变化？这些变化带来了什么影响？", "ko": "과거와 현재의 휴대폰 사용을 비교해 주세요. 어떤 변화가 있었고 그 영향은 무엇인가요?" },
+
+    { "id": "rpmovie_ask_3", "topicId": "rp_movie", "type": "ROLEPLAY_ASK", "difficulty": 3, "zh": "我给你一个情景，请表演一下。你想周末和朋友一起去看电影。请给电影院打电话，问三四个关于电影和票的问题。", "ko": "상황극입니다. 주말에 친구와 영화를 보러 가려고 합니다. 영화관에 전화해서 영화와 표에 관해 3~4가지 질문을 하세요." },
+    { "id": "rpmovie_solve_4", "topicId": "rp_movie", "type": "ROLEPLAY_SOLVE", "difficulty": 4, "zh": "有一个问题需要你解决。你买好了电影票，但是那天突然有事，不能去看电影了。请给朋友打电话，说明情况，并提出两三个解决办法。", "ko": "문제 해결 상황입니다. 영화표를 샀는데 그날 갑자기 일이 생겨 못 가게 됐습니다. 친구에게 전화해 상황을 설명하고 해결책을 2~3가지 제시하세요." },
+    { "id": "rpmovie_exp_4", "topicId": "rp_movie", "type": "ROLEPLAY_EXPERIENCE", "difficulty": 4, "zh": "很好。那么请谈谈你自己的经历。你有没有因为突然有事而取消约会或者计划的经历？当时发生了什么？你是怎么解决的？", "ko": "좋습니다. 이제 본인 경험을 말해 주세요. 갑자기 일이 생겨 약속이나 계획을 취소한 적이 있나요? 무슨 일이었고 어떻게 해결했나요?" },
+
+    { "id": "rptravel_ask_3", "topicId": "rp_travel", "type": "ROLEPLAY_ASK", "difficulty": 3, "zh": "我给你一个情景，请表演一下。你打算去中国旅行。请给旅行社打电话，问三四个关于旅行日程和价格的问题。", "ko": "상황극입니다. 중국 여행을 계획 중입니다. 여행사에 전화해 일정과 가격에 관해 3~4가지 질문을 하세요." },
+    { "id": "rptravel_solve_4", "topicId": "rp_travel", "type": "ROLEPLAY_SOLVE", "difficulty": 4, "zh": "有一个问题需要你解决。你到了酒店，但是酒店说没有你的预订信息。请向酒店工作人员说明情况，并提出解决办法。", "ko": "문제 해결 상황입니다. 호텔에 도착했는데 예약 정보가 없다고 합니다. 직원에게 상황을 설명하고 해결책을 제시하세요." },
+    { "id": "rptravel_exp_4", "topicId": "rp_travel", "type": "ROLEPLAY_EXPERIENCE", "difficulty": 4, "zh": "很好。那么请谈谈你自己的经历。你旅行的时候遇到过什么问题吗？比如预订出错、丢东西。当时你是怎么解决的？", "ko": "좋습니다. 본인 경험을 말해 주세요. 여행 중 예약 오류, 분실 같은 문제를 겪은 적 있나요? 어떻게 해결했나요?" },
+
+    { "id": "rpinvite_ask_3", "topicId": "rp_invite", "type": "ROLEPLAY_ASK", "difficulty": 3, "zh": "我给你一个情景，请表演一下。你的朋友请你周末去他家吃饭。请给朋友打电话，问三四个问题，比如时间、地点、要带什么。", "ko": "상황극입니다. 친구가 주말에 집으로 식사 초대를 했습니다. 친구에게 전화해 시간, 장소, 가져갈 것 등 3~4가지를 물어보세요." },
+    { "id": "rpinvite_solve_4", "topicId": "rp_invite", "type": "ROLEPLAY_SOLVE", "difficulty": 4, "zh": "有一个问题需要你解决。你答应去朋友家吃饭，但是那天公司突然要加班。请给朋友打电话说明情况，并提出别的办法。", "ko": "문제 해결 상황입니다. 친구 집 식사에 가기로 했는데 그날 갑자기 야근을 하게 됐습니다. 친구에게 전화해 설명하고 대안을 제시하세요." },
+    { "id": "rpinvite_exp_4", "topicId": "rp_invite", "type": "ROLEPLAY_EXPERIENCE", "difficulty": 4, "zh": "很好。那么请谈谈你自己的经历。你有没有请朋友来家里或者被朋友邀请的难忘经历？当时怎么样？", "ko": "좋습니다. 본인 경험을 말해 주세요. 친구를 집에 초대했거나 초대받았던 기억에 남는 경험이 있나요?" },
+
+    { "id": "rpshop_ask_3", "topicId": "rp_shopping", "type": "ROLEPLAY_ASK", "difficulty": 3, "zh": "我给你一个情景，请表演一下。你想买一件新衣服。请向商店的店员问三四个问题，比如颜色、大小、价格。", "ko": "상황극입니다. 새 옷을 사려고 합니다. 점원에게 색상, 사이즈, 가격 등 3~4가지 질문을 하세요." },
+    { "id": "rpshop_solve_4", "topicId": "rp_shopping", "type": "ROLEPLAY_SOLVE", "difficulty": 4, "zh": "有一个问题需要你解决。你买的衣服回家以后发现有问题，大小也不合适。请给商店打电话，说明情况，要求换货或者退款。", "ko": "문제 해결 상황입니다. 산 옷에 하자가 있고 사이즈도 안 맞습니다. 상점에 전화해 상황을 설명하고 교환이나 환불을 요구하세요." },
+    { "id": "rpshop_exp_4", "topicId": "rp_shopping", "type": "ROLEPLAY_EXPERIENCE", "difficulty": 4, "zh": "很好。那么请谈谈你自己的经历。你有没有买东西以后换货或者退款的经历？当时发生了什么？结果怎么样？", "ko": "좋습니다. 본인 경험을 말해 주세요. 물건을 사고 교환·환불했던 경험이 있나요? 결과는 어땠나요?" }
+  ]
+}
