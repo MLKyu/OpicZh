@@ -16,9 +16,19 @@ local.properties
 .externalNativeBuild/
 .cxx/
 
-# 서명 키 (커밋 금지)
+# 서명 키·비밀 (커밋 금지)
 *.jks
 *.keystore
+*.p12
+keystore.properties
+
+# 릴리스 R8 매핑 (build/ 밖으로 복사될 경우 대비)
+mapping.txt
+
+# Firebase 비공개 자격증명 (service account 등). google-services.json 은 클라이언트
+# 설정이라 커밋해도 무방하므로 무시하지 않는다.
+firebase-debug.log
+serviceAccountKey*.json
 
 # 기타
 .DS_Store
