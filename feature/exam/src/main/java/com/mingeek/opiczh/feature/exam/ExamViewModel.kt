@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.AnswerGrader
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.CrashReporter
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.exam.ExamRepository
@@ -77,6 +78,7 @@ class ExamViewModel @Inject constructor(
     private val speaker: ChineseSpeaker,
     private val recorder: AnswerRecorder,
     private val grader: AnswerGrader,
+    private val crashReporter: CrashReporter,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExamUiState())
@@ -152,6 +154,11 @@ class ExamViewModel @Inject constructor(
             sessionId = examRepository.createSession(state.targetGrade, state.selfAssessment)
             pendingAnswers.clear()
             midCheckDone = false
+            crashReporter.setKey("exam_active", "true")
+            crashReporter.log(
+                "exam:start topics=${state.selectedTopicIds.size} level=${state.selfAssessment} " +
+                    "questions=${composition.questions.size}",
+            )
             _uiState.update {
                 it.copy(
                     step = ExamStep.RUNNING,
@@ -261,6 +268,9 @@ class ExamViewModel @Inject constructor(
         _uiState.update {
             it.copy(currentIndex = index, listensLeft = 2, questionPlaying = false)
         }
+        _uiState.value.currentQuestion?.let { q ->
+            crashReporter.log("exam:q${index + 1}/${_uiState.value.questions.size} ${q.type.name}")
+        }
         playCurrentQuestion(auto = true)
     }
 
@@ -310,6 +320,7 @@ class ExamViewModel @Inject constructor(
         speaker.stop()
         val session = sessionId ?: return
         val target = _uiState.value.targetGrade
+        crashReporter.log("exam:grading answers=${pendingAnswers.size}")
         _uiState.update {
             it.copy(
                 step = ExamStep.GRADING,
@@ -350,6 +361,8 @@ class ExamViewModel @Inject constructor(
 
         val report = ExamReportAggregator.aggregate(graded, target)
         examRepository.completeSession(session, report)
+        crashReporter.setKey("exam_active", "false")
+        crashReporter.log("exam:report grade=${report.overallGrade.name} failed=${_uiState.value.gradingFailed}")
         // 교정받은 문장은 복습 카드로 자동 등록
         runCatching {
             studyRepository.addCorrectionCards(
@@ -372,6 +385,8 @@ class ExamViewModel @Inject constructor(
         viewModelScope.launch {
             cleanupRun()
             sessionId?.let { examRepository.abortSession(it) }
+            crashReporter.setKey("exam_active", "false")
+            crashReporter.log("exam:abort q${_uiState.value.currentIndex + 1}")
             onExited()
         }
     }

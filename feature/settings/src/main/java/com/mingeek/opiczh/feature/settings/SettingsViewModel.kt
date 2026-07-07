@@ -12,6 +12,8 @@ import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelManager
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelSpec
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModels
 import com.mingeek.opiczh.core.ai.ondevice.RecommendationRecord
+import com.mingeek.opiczh.core.common.BackupSelection
+import com.mingeek.opiczh.core.common.CloudBackup
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
@@ -52,6 +54,12 @@ data class SettingsUiState(
     val activeModelFileName: String? = null,
     val loadingRecommendation: Boolean = false,
     val recommendationError: String? = null,
+    // 클라우드 백업 (요청형·선택형)
+    val lastBackupAtMs: Long? = null,
+    val backupDb: Boolean = true,
+    val backupRecordings: Boolean = true,
+    val backingUp: Boolean = false,
+    val backupMessage: String? = null,
 )
 
 private data class KeyPanel(
@@ -75,12 +83,21 @@ private data class OnDevicePanel(
     val rec: RecPanel,
 )
 
+private data class BackupPanel(
+    val lastBackupAtMs: Long?,
+    val db: Boolean,
+    val recordings: Boolean,
+    val running: Boolean,
+    val message: String?,
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val modelCatalog: GeminiModelCatalog,
     private val modelManager: OnDeviceModelManager,
     private val modelRecommender: ModelRecommender,
+    private val cloudBackup: CloudBackup,
     usageTracker: UsageTracker,
 ) : ViewModel() {
 
@@ -95,6 +112,10 @@ class SettingsViewModel @Inject constructor(
     private val hfTokenInput = MutableStateFlow("")
     private val loadingRecommendation = MutableStateFlow(false)
     private val recommendationError = MutableStateFlow<String?>(null)
+    private val backupDb = MutableStateFlow(true)
+    private val backupRecordings = MutableStateFlow(true)
+    private val backingUp = MutableStateFlow(false)
+    private val backupMessage = MutableStateFlow<String?>(null)
 
     /** statusFlow 수집을 시작한 스펙 id (중복 수집 방지) */
     private val watchedSpecIds = mutableSetOf<String>()
@@ -122,11 +143,22 @@ class SettingsViewModel @Inject constructor(
         OnDevicePanel(statuses, input, token != null, rec)
     }
 
+    private val backupPanel = combine(
+        cloudBackup.lastBackupAtMs,
+        backupDb,
+        backupRecordings,
+        backingUp,
+        backupMessage,
+    ) { last, db, rec, running, message ->
+        BackupPanel(last, db, rec, running, message)
+    }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsRepository.settings,
         keyPanel,
         onDevicePanel,
-    ) { settings, key, onDevice ->
+        backupPanel,
+    ) { settings, key, onDevice, backup ->
         SettingsUiState(
             settings = settings,
             apiKeyInput = key.input,
@@ -140,6 +172,11 @@ class SettingsViewModel @Inject constructor(
             activeModelFileName = onDevice.rec.activeFileName,
             loadingRecommendation = onDevice.rec.loading,
             recommendationError = onDevice.rec.error,
+            lastBackupAtMs = backup.lastBackupAtMs,
+            backupDb = backup.db,
+            backupRecordings = backup.recordings,
+            backingUp = backup.running,
+            backupMessage = backup.message,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -299,5 +336,29 @@ class SettingsViewModel @Inject constructor(
 
     fun clearHfToken() {
         viewModelScope.launch { settingsRepository.clearHfToken() }
+    }
+
+    // --- 클라우드 백업 (요청형·카테고리 선택) ---
+
+    fun toggleBackupDb() = backupDb.update { !it }
+
+    fun toggleBackupRecordings() = backupRecordings.update { !it }
+
+    fun runBackup() {
+        if (backingUp.value) return
+        backingUp.value = true
+        backupMessage.value = null
+        viewModelScope.launch {
+            cloudBackup.backupNow(
+                BackupSelection(database = backupDb.value, recordings = backupRecordings.value),
+            )
+                .onSuccess { summary ->
+                    val mb = "%.1f".format(summary.totalBytes / 1_000_000.0)
+                    backupMessage.value =
+                        "백업 완료 — 업로드 ${summary.uploadedFiles}개 · 건너뜀 ${summary.skippedFiles}개 · ${mb}MB"
+                }
+                .onFailure { error -> backupMessage.value = error.userMessageKo() }
+            backingUp.value = false
+        }
     }
 }

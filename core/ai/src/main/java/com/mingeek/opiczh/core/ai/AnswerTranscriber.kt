@@ -2,6 +2,7 @@ package com.mingeek.opiczh.core.ai
 
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.AppTracer
 import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.common.map
 import java.io.File
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 @Singleton
 class AnswerTranscriber @Inject constructor(
     private val router: LlmRouter,
+    private val tracer: AppTracer,
 ) {
 
     suspend fun transcribe(audioFile: File): AppResult<String> {
@@ -35,9 +37,11 @@ class AnswerTranscriber @Inject constructor(
             ),
             temperature = 0.1f,
         )
-        return router.engineFor(AiTask.TRANSCRIPTION)
-            .flatMap { engine -> engine.generate(request) }
-            .map { reply -> reply.text.trim() }
+        return tracer.trace("transcribe_answer", "audio_kb" to (bytes.size / 1024).toString()) {
+            router.engineFor(AiTask.TRANSCRIPTION)
+                .flatMap { engine -> engine.generate(request) }
+                .map { reply -> reply.text.trim() }
+        }
     }
 
     private companion object {

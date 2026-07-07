@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +75,7 @@ fun SettingsScreen(
             ModelSection(uiState, viewModel)
             RoutingSection(uiState, viewModel)
             OnDeviceModelsSection(uiState, viewModel)
+            CloudBackupSection(uiState, viewModel)
             SectionCard(title = "음성 점검") {
                 Text(
                     text = "시험 전 스피커(장문 TTS)와 마이크(장시간 녹음·전사)가 정상 동작하는지 확인하세요.",
@@ -557,6 +559,72 @@ private fun RecommendationBlock(uiState: SettingsUiState, viewModel: SettingsVie
                 enabled = !uiState.loadingRecommendation,
             ) { Text("추천 새로고침 (최신 모델 확인)") }
             if (uiState.loadingRecommendation) CircularProgressIndicator()
+        }
+    }
+}
+
+/** 요청형·카테고리 선택형 클라우드 백업 (Firebase Storage) — 자동 백업 없음 */
+@Composable
+private fun CloudBackupSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    SectionCard(title = "클라우드 백업 (요청 시에만)") {
+        Text(
+            text = "선택한 항목만 Firebase Storage에 업로드합니다. 자동 백업은 하지 않으며, " +
+                "API 키·토큰·캐시·온디바이스 모델은 절대 포함되지 않습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Checkbox(
+                checked = uiState.backupDb,
+                onCheckedChange = { viewModel.toggleBackupDb() },
+            )
+            Text("학습 기록 (시험·리포트·복습 카드 DB)", style = MaterialTheme.typography.bodyMedium)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Checkbox(
+                checked = uiState.backupRecordings,
+                onCheckedChange = { viewModel.toggleBackupRecordings() },
+            )
+            Text("녹음 파일 (이미 올라간 파일은 건너뜀)", style = MaterialTheme.typography.bodyMedium)
+        }
+
+        uiState.lastBackupAtMs?.let { last ->
+            Text(
+                text = "마지막 백업: " +
+                    SimpleDateFormat("yyyy년 M월 d일 HH:mm", Locale.KOREA).format(Date(last)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Button(
+                onClick = viewModel::runBackup,
+                enabled = !uiState.backingUp && (uiState.backupDb || uiState.backupRecordings),
+            ) { Text(if (uiState.backingUp) "백업 중…" else "지금 백업") }
+            if (uiState.backingUp) CircularProgressIndicator()
+        }
+
+        uiState.backupMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (message.startsWith("백업 완료")) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
         }
     }
 }
