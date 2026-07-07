@@ -11,12 +11,18 @@ import com.mingeek.opiczh.core.ai.ondevice.ModelStatus
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelManager
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelSpec
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModels
+import android.content.Context
+import android.net.Uri
 import com.mingeek.opiczh.core.ai.ondevice.RecommendationRecord
-import com.mingeek.opiczh.core.common.BackupSelection
-import com.mingeek.opiczh.core.common.CloudBackup
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
+import com.mingeek.opiczh.core.data.backup.BackupArchiver
+import com.mingeek.opiczh.core.data.backup.BackupSelection
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.mingeek.opiczh.core.model.AppSettings
 import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
@@ -54,12 +60,14 @@ data class SettingsUiState(
     val activeModelFileName: String? = null,
     val loadingRecommendation: Boolean = false,
     val recommendationError: String? = null,
-    // 클라우드 백업 (요청형·선택형)
+    // 백업 내보내기 (요청형·선택형, SAF)
     val lastBackupAtMs: Long? = null,
     val backupDb: Boolean = true,
     val backupRecordings: Boolean = true,
     val backingUp: Boolean = false,
     val backupMessage: String? = null,
+    /** zip 준비 완료 → 화면이 이 이름으로 SAF 저장 선택기를 띄운다 */
+    val backupSuggestedName: String? = null,
 )
 
 private data class KeyPanel(
@@ -89,6 +97,7 @@ private data class BackupPanel(
     val recordings: Boolean,
     val running: Boolean,
     val message: String?,
+    val suggestedName: String?,
 )
 
 @HiltViewModel
@@ -97,7 +106,8 @@ class SettingsViewModel @Inject constructor(
     private val modelCatalog: GeminiModelCatalog,
     private val modelManager: OnDeviceModelManager,
     private val modelRecommender: ModelRecommender,
-    private val cloudBackup: CloudBackup,
+    private val backupArchiver: BackupArchiver,
+    @param:ApplicationContext private val appContext: Context,
     usageTracker: UsageTracker,
 ) : ViewModel() {
 
@@ -116,6 +126,8 @@ class SettingsViewModel @Inject constructor(
     private val backupRecordings = MutableStateFlow(true)
     private val backingUp = MutableStateFlow(false)
     private val backupMessage = MutableStateFlow<String?>(null)
+    private val backupSuggestedName = MutableStateFlow<String?>(null)
+    private var pendingArchive: File? = null
 
     /** statusFlow 수집을 시작한 스펙 id (중복 수집 방지) */
     private val watchedSpecIds = mutableSetOf<String>()
@@ -143,14 +155,16 @@ class SettingsViewModel @Inject constructor(
         OnDevicePanel(statuses, input, token != null, rec)
     }
 
+    private val backupSelectionFlow = combine(backupDb, backupRecordings) { db, rec -> db to rec }
+
     private val backupPanel = combine(
-        cloudBackup.lastBackupAtMs,
-        backupDb,
-        backupRecordings,
+        settingsRepository.lastBackupAt,
+        backupSelectionFlow,
         backingUp,
         backupMessage,
-    ) { last, db, rec, running, message ->
-        BackupPanel(last, db, rec, running, message)
+        backupSuggestedName,
+    ) { last, selection, running, message, suggestedName ->
+        BackupPanel(last, selection.first, selection.second, running, message, suggestedName)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
@@ -177,6 +191,7 @@ class SettingsViewModel @Inject constructor(
             backupRecordings = backup.recordings,
             backingUp = backup.running,
             backupMessage = backup.message,
+            backupSuggestedName = backup.suggestedName,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -338,27 +353,62 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.clearHfToken() }
     }
 
-    // --- 클라우드 백업 (요청형·카테고리 선택) ---
+    // --- 백업 내보내기 (요청형·카테고리 선택, SAF — 무료) ---
 
     fun toggleBackupDb() = backupDb.update { !it }
 
     fun toggleBackupRecordings() = backupRecordings.update { !it }
 
+    /** zip 생성 → 준비되면 화면이 저장 위치 선택기(SAF)를 띄운다 */
     fun runBackup() {
         if (backingUp.value) return
         backingUp.value = true
         backupMessage.value = null
         viewModelScope.launch {
-            cloudBackup.backupNow(
+            backupArchiver.createArchive(
                 BackupSelection(database = backupDb.value, recordings = backupRecordings.value),
             )
-                .onSuccess { summary ->
-                    val mb = "%.1f".format(summary.totalBytes / 1_000_000.0)
-                    backupMessage.value =
-                        "백업 완료 — 업로드 ${summary.uploadedFiles}개 · 건너뜀 ${summary.skippedFiles}개 · ${mb}MB"
+                .onSuccess { archive ->
+                    pendingArchive = archive
+                    backupSuggestedName.value = archive.name
                 }
-                .onFailure { error -> backupMessage.value = error.userMessageKo() }
-            backingUp.value = false
+                .onFailure { error ->
+                    backupMessage.value = error.userMessageKo()
+                    backingUp.value = false
+                }
         }
+    }
+
+    /** SAF 선택 결과: 사용자가 고른 위치(구글 드라이브·다운로드 등)로 zip 복사 */
+    fun onBackupDestination(uri: Uri?) {
+        val archive = pendingArchive
+        pendingArchive = null
+        backupSuggestedName.value = null
+        viewModelScope.launch {
+            try {
+                if (uri == null || archive == null) {
+                    backupMessage.value = "백업이 취소되었습니다"
+                    return@launch
+                }
+                val bytes = archive.length()
+                withContext(Dispatchers.IO) {
+                    appContext.contentResolver.openOutputStream(uri)?.use { output ->
+                        archive.inputStream().use { it.copyTo(output) }
+                    } ?: error("저장 위치를 열 수 없습니다")
+                }
+                settingsRepository.markBackupDone()
+                backupMessage.value = "백업 완료 — %.1fMB 저장됨".format(bytes / 1_000_000.0)
+            } catch (t: Throwable) {
+                backupMessage.value = "저장 실패: ${t.message}"
+            } finally {
+                archive?.delete()
+                backingUp.value = false
+            }
+        }
+    }
+
+    override fun onCleared() {
+        pendingArchive?.delete()
+        super.onCleared()
     }
 }

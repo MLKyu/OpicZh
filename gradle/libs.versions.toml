@@ -82,9 +82,6 @@ firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashly
 firebase-crashlytics-ndk = { group = "com.google.firebase", name = "firebase-crashlytics-ndk" }
 firebase-perf = { group = "com.google.firebase", name = "firebase-perf" }
 firebase-config = { group = "com.google.firebase", name = "firebase-config" }
-firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
-firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
-kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutines" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 

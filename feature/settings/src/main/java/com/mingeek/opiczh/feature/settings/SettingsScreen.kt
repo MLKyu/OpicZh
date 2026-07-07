@@ -1,5 +1,7 @@
 package com.mingeek.opiczh.feature.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +36,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -566,10 +569,17 @@ private fun RecommendationBlock(uiState: SettingsUiState, viewModel: SettingsVie
 /** 요청형·카테고리 선택형 클라우드 백업 (Firebase Storage) — 자동 백업 없음 */
 @Composable
 private fun CloudBackupSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
-    SectionCard(title = "클라우드 백업 (요청 시에만)") {
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri -> viewModel.onBackupDestination(uri) }
+    LaunchedEffect(uiState.backupSuggestedName) {
+        uiState.backupSuggestedName?.let(saveLauncher::launch)
+    }
+
+    SectionCard(title = "백업 내보내기 (무료 · 요청 시에만)") {
         Text(
-            text = "선택한 항목만 Firebase Storage에 업로드합니다. 자동 백업은 하지 않으며, " +
-                "API 키·토큰·캐시·온디바이스 모델은 절대 포함되지 않습니다.",
+            text = "선택한 항목을 zip 파일 하나로 만들어 원하는 위치(구글 드라이브·다운로드 등)에 저장합니다. " +
+                "자동 백업은 하지 않으며, API 키·토큰·캐시·온디바이스 모델은 절대 포함되지 않습니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
