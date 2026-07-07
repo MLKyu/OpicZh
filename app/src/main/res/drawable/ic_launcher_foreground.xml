@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 전경: 흰 말풍선 안의 '中' — 중국어 말하기 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 말풍선 본체 (30,32)-(78,70), r=12 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,32 h24 a12,12 0 0 1 12,12 v14 a12,12 0 0 1 -12,12 h-24 a12,12 0 0 1 -12,-12 v-14 a12,12 0 0 1 12,-12 z" />
+
+    <!-- 말풍선 꼬리 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,68 L35,79 L52,70 z" />
+
+    <!-- 中: 입 구(口) -->
+    <path
+        android:pathData="M40,44 h28 v14 h-28 z"
+        android:strokeColor="#A93A24"
+        android:strokeWidth="5.5"
+        android:strokeLineJoin="round" />
+
+    <!-- 中: 세로획 -->
+    <path
+        android:pathData="M54,37 V66"
+        android:strokeColor="#A93A24"
+        android:strokeWidth="5.5"
+        android:strokeLineCap="round" />
+
+    <!-- 금색 포인트 (녹음 불빛) -->
+    <path
+        android:fillColor="#E8B54A"
+        android:pathData="M69,38 m-3.5,0 a3.5,3.5 0 1,1 7,0 a3.5,3.5 0 1,1 -7,0" />
+</vector>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "349589842302",
+    "project_id": "opiczh-8e30f",
+    "storage_bucket": "opiczh-8e30f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:349589842302:android:d5d3b2fcdb234a484d6b2f",
+        "android_client_info": {
+          "package_name": "com.mingeek.opiczh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUSz3uq0tGO7FPSsJUovX5nWiURLhI99k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

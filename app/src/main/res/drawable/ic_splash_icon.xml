@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 스플래시 아이콘: 크림색 원(iconBackgroundColor) 위의 홍색 말풍선 中 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M42,32 h24 a12,12 0 0 1 12,12 v14 a12,12 0 0 1 -12,12 h-24 a12,12 0 0 1 -12,-12 v-14 a12,12 0 0 1 12,-12 z"
+        android:strokeColor="#A93A24"
+        android:strokeWidth="5.5"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:fillColor="#A93A24"
+        android:pathData="M40,68 L35,79 L52,70 z" />
+
+    <path
+        android:pathData="M42,45 h24 v12 h-24 z"
+        android:strokeColor="#A93A24"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,38 V64"
+        android:strokeColor="#A93A24"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+
+    <path
+        android:fillColor="#E8B54A"
+        android:pathData="M69,38 m-3.5,0 a3.5,3.5 0 1,1 7,0 a3.5,3.5 0 1,1 -7,0" />
+</vector>

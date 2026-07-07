@@ -1,0 +1,112 @@
+{
+  "templates": [
+    {
+      "id": "tpl_opening",
+      "category": "만능 오프닝",
+      "title": "생각할 시간 벌기",
+      "zh": "哦，这个问题嘛，让我想一想。",
+      "pinyin": "Ò, zhège wèntí ma, ràng wǒ xiǎng yi xiǎng.",
+      "ko": "아, 이 질문이라면, 잠깐 생각해 볼게요.",
+      "tip": "어떤 질문이든 첫 문장으로 사용해 침묵을 없애고 자연스럽게 시작하세요."
+    },
+    {
+      "id": "tpl_desc_place",
+      "category": "묘사",
+      "title": "장소 묘사 만능틀",
+      "zh": "我常去的地方是我家附近的公园。那里有很多树，还有一个小湖，环境很好，人也不多。我每次去那里心情都特别好。",
+      "pinyin": "Wǒ cháng qù de dìfang shì wǒ jiā fùjìn de gōngyuán. Nàlǐ yǒu hěn duō shù, hái yǒu yí ge xiǎo hú, huánjìng hěn hǎo, rén yě bù duō. Wǒ měi cì qù nàlǐ xīnqíng dōu tèbié hǎo.",
+      "ko": "제가 자주 가는 곳은 집 근처 공원입니다. 나무가 많고 작은 호수도 있어서 환경이 좋고 사람도 많지 않아요. 갈 때마다 기분이 아주 좋아집니다.",
+      "tip": "장소만 바꾸면 거주지·공원·카페 등 모든 묘사 문항에 응용됩니다: 위치→있는 것→분위기→내 느낌 순서."
+    },
+    {
+      "id": "tpl_routine",
+      "category": "습관·일상",
+      "title": "루틴 설명 만능틀",
+      "zh": "我一般周末去那儿。先散散步，然后喝杯咖啡，有时候也跟朋友聊聊天。这样过周末，我觉得很放松。",
+      "pinyin": "Wǒ yìbān zhōumò qù nàr. Xiān sàn san bù, ránhòu hē bēi kāfēi, yǒushíhou yě gēn péngyou liáo liao tiān. Zhèyàng guò zhōumò, wǒ juéde hěn fàngsōng.",
+      "ko": "저는 보통 주말에 거기 갑니다. 먼저 산책을 하고, 그다음 커피를 마시고, 가끔 친구와 수다도 떨어요. 이렇게 주말을 보내면 아주 편안해요.",
+      "tip": "先…然后…有时候… 순서 연결어가 문장 수준 점수를 올립니다."
+    },
+    {
+      "id": "tpl_exp",
+      "category": "경험",
+      "title": "과거 경험 만능틀 (기승전결)",
+      "zh": "记得去年秋天，我和朋友一起去釜山旅行了。我们吃了很多好吃的，还看了大海。不过那天突然下雨了，我们没带伞，只好跑回酒店，都湿透了。虽然有点儿狼狈，但是现在想起来还是觉得很有意思，真是难忘的经历。",
+      "pinyin": "Jìde qùnián qiūtiān, wǒ hé péngyou yìqǐ qù Fǔshān lǚxíng le. Wǒmen chī le hěn duō hǎochī de, hái kàn le dàhǎi. Búguò nà tiān tūrán xià yǔ le, wǒmen méi dài sǎn, zhǐhǎo pǎo huí jiǔdiàn, dōu shī tòu le. Suīrán yǒudiǎnr lángbèi, dànshì xiànzài xiǎng qǐlai háishi juéde hěn yǒuyìsi, zhēnshi nánwàng de jīnglì.",
+      "ko": "작년 가을에 친구와 부산 여행을 갔던 게 기억나요. 맛있는 걸 많이 먹고 바다도 봤어요. 그런데 그날 갑자기 비가 왔는데 우산이 없어서 호텔까지 뛰어가느라 흠뻑 젖었죠. 좀 곤란했지만 지금 생각하면 재미있는, 정말 잊지 못할 경험이에요.",
+      "tip": "경험 문항 핵심 구조: 记得+시점 → 무엇을 했다 → 不过+돌발사건 → 결과+느낌. 사건 하나만 넣으면 IM2 충분."
+    },
+    {
+      "id": "tpl_comp",
+      "category": "비교",
+      "title": "과거·현재 비교 만능틀",
+      "zh": "跟以前相比，现在变化很大。以前我们一般去商店买东西，可是现在大家都用手机购物，又方便又便宜。所以我觉得生活越来越方便了。",
+      "pinyin": "Gēn yǐqián xiāngbǐ, xiànzài biànhuà hěn dà. Yǐqián wǒmen yìbān qù shāngdiàn mǎi dōngxi, kěshì xiànzài dàjiā dōu yòng shǒujī gòuwù, yòu fāngbiàn yòu piányi. Suǒyǐ wǒ juéde shēnghuó yuèláiyuè fāngbiàn le.",
+      "ko": "예전과 비교하면 지금은 변화가 큽니다. 예전엔 보통 가게에 가서 물건을 샀지만, 지금은 모두 휴대폰으로 쇼핑하죠. 편리하고 저렴해요. 그래서 생활이 점점 편리해진다고 생각해요.",
+      "tip": "跟以前相比 / 以前…可是现在… / 又A又B / 越来越… — 비교 문항 4대 필수 표현."
+    },
+    {
+      "id": "tpl_rp_ask",
+      "category": "롤플레이-질문",
+      "title": "전화 질문 만능틀",
+      "zh": "喂，你好！我想问一下几个问题。第一，你们几点开门？第二，价格是多少钱？另外，需要提前预订吗？好的，谢谢你！",
+      "pinyin": "Wéi, nǐ hǎo! Wǒ xiǎng wèn yíxià jǐ ge wèntí. Dì yī, nǐmen jǐ diǎn kāi mén? Dì èr, jiàgé shì duōshao qián? Lìngwài, xūyào tíqián yùdìng ma? Hǎo de, xièxie nǐ!",
+      "ko": "여보세요, 안녕하세요! 몇 가지 여쭤볼게요. 첫째, 몇 시에 문을 여나요? 둘째, 가격은 얼마인가요? 그리고 미리 예약해야 하나요? 네, 감사합니다!",
+      "tip": "第一/第二/另外로 질문 3개 구조화 + 인사와 마무리. 어떤 예약 상황이든 내용어만 교체."
+    },
+    {
+      "id": "tpl_rp_solve",
+      "category": "롤플레이-문제해결",
+      "title": "문제 해결 만능틀 (사과→설명→대안 2개)",
+      "zh": "喂，真不好意思，出了一点儿问题。我突然有急事，恐怕去不了了。你看这样行不行？我们改到明天，或者下个周末再见面？真的很抱歉。",
+      "pinyin": "Wéi, zhēn bù hǎoyìsi, chū le yìdiǎnr wèntí. Wǒ tūrán yǒu jíshì, kǒngpà qù bu liǎo le. Nǐ kàn zhèyàng xíng bu xíng? Wǒmen gǎi dào míngtiān, huòzhě xià ge zhōumò zài jiànmiàn? Zhēn de hěn bàoqiàn.",
+      "ko": "여보세요, 정말 미안한데 문제가 좀 생겼어. 갑자기 급한 일이 있어서 못 갈 것 같아. 이렇게 하는 건 어때? 내일로 바꾸거나 다음 주말에 만나는 거야. 정말 미안해.",
+      "tip": "사과 → 상황 설명 → 대안 제시(改到…或者…) 3단 구조가 채점 포인트. 대안은 꼭 2개!"
+    },
+    {
+      "id": "tpl_rp_exp",
+      "category": "롤플레이-관련경험",
+      "title": "롤플레이 3단계(경험담) 연결틀",
+      "zh": "说到这个，我也有过类似的经历。去年我也因为突然加班，取消了跟朋友的约会。我马上给他打电话道歉，然后请他吃了一顿好吃的。朋友也理解我了。",
+      "pinyin": "Shuōdào zhège, wǒ yě yǒu guo lèisì de jīnglì. Qùnián wǒ yě yīnwèi tūrán jiābān, qǔxiāo le gēn péngyou de yuēhuì. Wǒ mǎshàng gěi tā dǎ diànhuà dàoqiàn, ránhòu qǐng tā chī le yí dùn hǎochī de. Péngyou yě lǐjiě wǒ le.",
+      "ko": "그 얘기가 나와서 말인데, 저도 비슷한 경험이 있어요. 작년에 갑자기 야근하게 돼서 친구와의 약속을 취소했죠. 바로 전화해서 사과하고 맛있는 걸 대접했어요. 친구도 이해해 줬어요.",
+      "tip": "롤플레이 13번(관련 경험)은 '说到这个，我也有过类似的经历'로 시작하면 자연스럽게 이어집니다."
+    },
+    {
+      "id": "tpl_unexpected",
+      "category": "돌발 대응",
+      "title": "돌발 주제 첫 문장",
+      "zh": "说实话，我平时没怎么想过这个问题，不过让我说说看。",
+      "pinyin": "Shuō shíhuà, wǒ píngshí méi zěnme xiǎng guo zhège wèntí, búguò ràng wǒ shuō shuo kàn.",
+      "ko": "솔직히 평소에 별로 생각해 본 적 없는 문제지만, 한번 말해 볼게요.",
+      "tip": "돌발 문항에서 당황하지 않고 시작하는 만능 문장. 이후 아는 주제로 연결하세요."
+    },
+    {
+      "id": "tpl_opinion",
+      "category": "의견",
+      "title": "의견 말하기 틀",
+      "zh": "在我看来，这是一个很好的变化。因为它让我们的生活更方便了，所以我觉得以后会有更多人这样做。",
+      "pinyin": "Zài wǒ kànlái, zhè shì yí ge hěn hǎo de biànhuà. Yīnwèi tā ràng wǒmen de shēnghuó gèng fāngbiàn le, suǒyǐ wǒ juéde yǐhòu huì yǒu gèng duō rén zhèyàng zuò.",
+      "ko": "제가 보기에 이것은 아주 좋은 변화입니다. 우리의 생활을 더 편리하게 해 주기 때문에, 앞으로 더 많은 사람들이 이렇게 할 거라고 생각해요.",
+      "tip": "在我看来 → 因为…所以… → 我觉得. 고난도 문항에서 의견+근거 구조로 점수 방어."
+    },
+    {
+      "id": "tpl_closing",
+      "category": "만능 클로징",
+      "title": "답변 마무리",
+      "zh": "总的来说，我真的很喜欢这样的时间。这就是我想说的，谢谢。",
+      "pinyin": "Zǒng de lái shuō, wǒ zhēn de hěn xǐhuan zhèyàng de shíjiān. Zhè jiù shì wǒ xiǎng shuō de, xièxie.",
+      "ko": "전체적으로 말하면, 저는 이런 시간이 정말 좋아요. 이게 제가 하고 싶은 말이에요, 감사합니다.",
+      "tip": "답변이 짧게 끝나 어색할 때 总的来说로 요약하며 마무리하면 완결성 점수를 지킵니다."
+    },
+    {
+      "id": "tpl_filler",
+      "category": "필러",
+      "title": "자연스러운 필러 모음",
+      "zh": "嗯……怎么说呢……就是……对了！",
+      "pinyin": "Ǹg…… zěnme shuō ne…… jiùshì…… duì le!",
+      "ko": "음… 뭐라고 할까… 그러니까… 맞다!",
+      "tip": "한국어 '어…'대신 중국어 필러를 쓰면 유창성 인상이 완전히 달라집니다. 침묵 3초보다 필러 1개."
+    }
+  ]
+}

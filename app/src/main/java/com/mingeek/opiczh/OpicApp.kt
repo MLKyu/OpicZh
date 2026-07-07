@@ -1,0 +1,101 @@
+package com.mingeek.opiczh
+
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import com.mingeek.opiczh.feature.exam.ExamScreen
+import com.mingeek.opiczh.feature.home.HomeScreen
+import com.mingeek.opiczh.feature.settings.SettingsScreen
+import com.mingeek.opiczh.feature.settings.speechlab.SpeechLabScreen
+import com.mingeek.opiczh.feature.study.StudyScreen
+import com.mingeek.opiczh.feature.study.freetalk.FreeTalkScreen
+import com.mingeek.opiczh.feature.study.practice.TopicPracticeScreen
+import com.mingeek.opiczh.feature.study.srs.SrsReviewScreen
+import com.mingeek.opiczh.feature.study.template.TemplateShadowScreen
+import kotlinx.serialization.Serializable
+
+@Serializable
+data object HomeKey : NavKey
+
+@Serializable
+data object ExamKey : NavKey
+
+@Serializable
+data object StudyKey : NavKey
+
+@Serializable
+data object SettingsKey : NavKey
+
+@Serializable
+data object SpeechLabKey : NavKey
+
+@Serializable
+data object TopicPracticeKey : NavKey
+
+@Serializable
+data object TemplatesKey : NavKey
+
+@Serializable
+data object SrsReviewKey : NavKey
+
+@Serializable
+data object FreeTalkKey : NavKey
+
+@Composable
+fun OpicApp() {
+    val backStack = rememberNavBackStack(HomeKey)
+    NavDisplay(
+        backStack = backStack,
+        onBack = { backStack.removeLastOrNull() },
+        entryDecorators = listOf(
+            rememberSaveableStateHolderNavEntryDecorator(),
+            rememberViewModelStoreNavEntryDecorator(),
+        ),
+        entryProvider = entryProvider {
+            entry<HomeKey> {
+                HomeScreen(
+                    onStartExam = { backStack.add(ExamKey) },
+                    onStudy = { backStack.add(StudyKey) },
+                    onSettings = { backStack.add(SettingsKey) },
+                )
+            }
+            entry<ExamKey> {
+                ExamScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<StudyKey> {
+                StudyScreen(
+                    onBack = { backStack.removeLastOrNull() },
+                    onTopicPractice = { backStack.add(TopicPracticeKey) },
+                    onTemplates = { backStack.add(TemplatesKey) },
+                    onSrsReview = { backStack.add(SrsReviewKey) },
+                    onFreeTalk = { backStack.add(FreeTalkKey) },
+                )
+            }
+            entry<FreeTalkKey> {
+                FreeTalkScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<TopicPracticeKey> {
+                TopicPracticeScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<TemplatesKey> {
+                TemplateShadowScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<SrsReviewKey> {
+                SrsReviewScreen(onBack = { backStack.removeLastOrNull() })
+            }
+            entry<SettingsKey> {
+                SettingsScreen(
+                    onBack = { backStack.removeLastOrNull() },
+                    onOpenSpeechLab = { backStack.add(SpeechLabKey) },
+                )
+            }
+            entry<SpeechLabKey> {
+                SpeechLabScreen(onBack = { backStack.removeLastOrNull() })
+            }
+        },
+    )
+}
