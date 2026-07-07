@@ -27,7 +27,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -37,6 +38,17 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+}
+
+// 릴리스 APK 파일명을 "OpicZh-<버전>.apk" 로 (예: OpicZh-1.0.apk)
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        val versionName = variant.outputs.firstOrNull()?.versionName?.orNull ?: "1.0"
+        variant.outputs.forEach { output ->
+            (output as com.android.build.api.variant.impl.VariantOutputImpl)
+                .outputFileName.set("OpicZh-$versionName.apk")
+        }
     }
 }
 

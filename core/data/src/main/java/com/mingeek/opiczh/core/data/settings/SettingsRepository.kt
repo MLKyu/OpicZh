@@ -27,7 +27,6 @@ class SettingsRepository @Inject constructor(
 
     private object Keys {
         val API_KEY_ENCRYPTED = stringPreferencesKey("api_key_encrypted")
-        val HF_TOKEN_ENCRYPTED = stringPreferencesKey("hf_token_encrypted")
         val TARGET_GRADE = stringPreferencesKey("target_grade")
         val TEXT_MODEL_ID = stringPreferencesKey("text_model_id")
         val TTS_MODEL_ID = stringPreferencesKey("tts_model_id")
@@ -70,20 +69,6 @@ class SettingsRepository @Inject constructor(
 
     suspend fun clearApiKey() {
         dataStore.edit { it.remove(Keys.API_KEY_ENCRYPTED) }
-    }
-
-    /** HuggingFace 토큰 (게이트 모델 다운로드용, 암호화 저장) */
-    val hfToken: Flow<String?> = dataStore.data.map { prefs ->
-        prefs[Keys.HF_TOKEN_ENCRYPTED]?.takeIf { it.isNotBlank() }?.let(cipher::decrypt)
-    }.distinctUntilChanged()
-
-    suspend fun setHfToken(rawToken: String) {
-        val encrypted = cipher.encrypt(rawToken.trim())
-        dataStore.edit { it[Keys.HF_TOKEN_ENCRYPTED] = encrypted }
-    }
-
-    suspend fun clearHfToken() {
-        dataStore.edit { it.remove(Keys.HF_TOKEN_ENCRYPTED) }
     }
 
     /** 마지막 백업 내보내기 완료 시각 (epoch ms) */

@@ -37,7 +37,6 @@ class ModelDownloadWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
         val fileName = inputData.getString(KEY_FILE_NAME) ?: return@withContext Result.failure()
-        val token = inputData.getString(KEY_HF_TOKEN)
         val displayName = inputData.getString(KEY_DISPLAY_NAME) ?: fileName
 
         val modelsDir = File(applicationContext.filesDir, "models").apply { mkdirs() }
@@ -51,7 +50,6 @@ class ModelDownloadWorker(
         val request = Request.Builder()
             .url(url)
             .apply {
-                if (!token.isNullOrBlank()) header("Authorization", "Bearer $token")
                 if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
             }
             .build()
@@ -61,7 +59,7 @@ class ModelDownloadWorker(
                 when {
                     response.code == 401 || response.code == 403 ->
                         return@withContext Result.failure(
-                            workDataOf(KEY_ERROR to "접근 거부(${response.code}): HuggingFace에서 모델 라이선스에 동의하고, 설정에 유효한 토큰을 등록하세요."),
+                            workDataOf(KEY_ERROR to "접근 거부(${response.code}): 이 모델은 공개 다운로드가 제한되어 있습니다. 다른 무료 모델을 선택하세요."),
                         )
                     response.code == 404 ->
                         return@withContext Result.failure(
@@ -139,7 +137,6 @@ class ModelDownloadWorker(
     companion object {
         const val KEY_URL = "url"
         const val KEY_FILE_NAME = "fileName"
-        const val KEY_HF_TOKEN = "hfToken"
         const val KEY_DISPLAY_NAME = "displayName"
         const val KEY_PROGRESS = "progress"
         const val KEY_ERROR = "error"

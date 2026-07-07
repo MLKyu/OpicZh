@@ -10,7 +10,6 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.mingeek.opiczh.core.data.settings.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -40,7 +39,6 @@ sealed interface ModelStatus {
 @Singleton
 class OnDeviceModelManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val settingsRepository: SettingsRepository,
     private val store: OnDeviceModelStore,
 ) {
 
@@ -75,13 +73,11 @@ class OnDeviceModelManager @Inject constructor(
         }
 
     suspend fun startDownload(spec: OnDeviceModelSpec) {
-        val token = settingsRepository.hfToken.first()
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
             .setInputData(
                 workDataOf(
                     ModelDownloadWorker.KEY_URL to spec.url,
                     ModelDownloadWorker.KEY_FILE_NAME to spec.fileName,
-                    ModelDownloadWorker.KEY_HF_TOKEN to token,
                     ModelDownloadWorker.KEY_DISPLAY_NAME to spec.displayName,
                 ),
             )

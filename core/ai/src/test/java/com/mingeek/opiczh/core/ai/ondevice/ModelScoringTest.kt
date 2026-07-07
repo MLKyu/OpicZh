@@ -11,16 +11,12 @@ class ModelScoringTest {
     private fun input(
         repoId: String,
         paramsB: Double,
-        gated: Boolean = false,
-        hasToken: Boolean = false,
         downloads: Long = 10_000,
         days: Long? = 30,
         instruct: Boolean = true,
     ) = ModelScoring.ScoreInput(
         repoId = repoId,
         paramsB = paramsB,
-        gatedNeedsToken = gated,
-        hasHfToken = hasToken,
         downloads = downloads,
         daysSinceUpdate = days,
         isInstruct = instruct,
@@ -52,12 +48,29 @@ class ModelScoringTest {
     }
 
     @Test
-    fun `gated penalty applies only without token`() {
-        val withoutToken = ModelScoring.score(input("google/gemma-3n-E2B-it-litert-lm", 2.0, gated = true))
-        val withToken = ModelScoring.score(
-            input("google/gemma-3n-E2B-it-litert-lm", 2.0, gated = true, hasToken = true),
+    fun `gemma-4 is its own family with strong korean and parses E-params`() {
+        val g4 = ModelScoring.detectFamily("litert-community/gemma-4-E2B-it-litert-lm")
+        assertEquals("gemma-4", g4.family)
+        // 최신 Gemma는 구형 gemma보다 한국어 설명 능력이 높게 잡혀 있다
+        assertTrue(g4.ko >= ModelScoring.detectFamily("litert-community/Gemma3-1B-IT").ko)
+        assertEquals(2.0, ModelScoring.parseParamsB("litert-community/gemma-4-E2B-it-litert-lm")!!, 0.001)
+        assertEquals(4.0, ModelScoring.parseParamsB("litert-community/gemma-4-E4B-it-litert-lm")!!, 0.001)
+    }
+
+    @Test
+    fun `device-specific gemma-4 variants excluded, generic file picked`() {
+        val mb = 1_048_576L
+        val picked = ModelScoring.pickBestFile(
+            listOf(
+                "gemma-4-E2B-it-web.litertlm" to 1915 * mb,
+                "gemma-4-E2B-it.litertlm" to 2468 * mb,
+                "gemma-4-E2B-it_Google_Tensor_G5.litertlm" to 3770 * mb,
+                "gemma-4-E2B-it_intel_LNL.litertlm" to 2823 * mb,
+                "gemma-4-E2B-it_qualcomm_sm8750.litertlm" to 2877 * mb,
+            ),
         )
-        assertEquals(1.5, withToken - withoutToken, 0.001)
+        // web/tensor/intel/qualcomm 변형 전부 제외 → 범용 파일만 남는다
+        assertEquals("gemma-4-E2B-it.litertlm", picked?.first)
     }
 
     @Test

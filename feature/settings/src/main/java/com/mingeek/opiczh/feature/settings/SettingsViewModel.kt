@@ -53,8 +53,6 @@ data class SettingsUiState(
     // 온디바이스 모델
     val onDeviceSpecs: List<OnDeviceModelSpec> = OnDeviceModels.ALL,
     val onDeviceStatuses: Map<String, ModelStatus> = emptyMap(),
-    val hfTokenInput: String = "",
-    val hfTokenSet: Boolean = false,
     // 모델 추천/교체
     val recommendation: RecommendationRecord? = null,
     val activeModelFileName: String? = null,
@@ -86,8 +84,6 @@ private data class RecPanel(
 
 private data class OnDevicePanel(
     val statuses: Map<String, ModelStatus>,
-    val tokenInput: String,
-    val tokenSet: Boolean,
     val rec: RecPanel,
 )
 
@@ -119,7 +115,6 @@ class SettingsViewModel @Inject constructor(
     private val availableModels = MutableStateFlow<List<LlmModelInfo>>(emptyList())
     private val loadingModels = MutableStateFlow(false)
     private val onDeviceStatuses = MutableStateFlow<Map<String, ModelStatus>>(emptyMap())
-    private val hfTokenInput = MutableStateFlow("")
     private val loadingRecommendation = MutableStateFlow(false)
     private val recommendationError = MutableStateFlow<String?>(null)
     private val backupDb = MutableStateFlow(true)
@@ -148,11 +143,9 @@ class SettingsViewModel @Inject constructor(
 
     private val onDevicePanel = combine(
         onDeviceStatuses,
-        hfTokenInput,
-        settingsRepository.hfToken,
         recPanel,
-    ) { statuses, input, token, rec ->
-        OnDevicePanel(statuses, input, token != null, rec)
+    ) { statuses, rec ->
+        OnDevicePanel(statuses, rec)
     }
 
     private val backupSelectionFlow = combine(backupDb, backupRecordings) { db, rec -> db to rec }
@@ -180,8 +173,6 @@ class SettingsViewModel @Inject constructor(
             availableModels = key.models,
             loadingModels = key.loading,
             onDeviceStatuses = onDevice.statuses,
-            hfTokenInput = onDevice.tokenInput,
-            hfTokenSet = onDevice.tokenSet,
             recommendation = onDevice.rec.recommendation,
             activeModelFileName = onDevice.rec.activeFileName,
             loadingRecommendation = onDevice.rec.loading,
@@ -296,8 +287,7 @@ class SettingsViewModel @Inject constructor(
         loadingRecommendation.value = true
         recommendationError.value = null
         viewModelScope.launch {
-            val hasToken = settingsRepository.hfToken.first() != null
-            modelRecommender.recommend(hasHfToken = hasToken)
+            modelRecommender.recommend()
                 .onSuccess { record ->
                     modelManager.setRecommendation(record)
                     watchSpec(record.spec)
@@ -334,23 +324,6 @@ class SettingsViewModel @Inject constructor(
             modelManager.delete(spec)
             onDeviceStatuses.update { it + (spec.id to ModelStatus.NotInstalled) }
         }
-    }
-
-    fun onHfTokenInputChange(value: String) {
-        hfTokenInput.value = value
-    }
-
-    fun saveHfToken() {
-        val token = hfTokenInput.value.trim()
-        if (token.isEmpty()) return
-        viewModelScope.launch {
-            settingsRepository.setHfToken(token)
-            hfTokenInput.value = ""
-        }
-    }
-
-    fun clearHfToken() {
-        viewModelScope.launch { settingsRepository.clearHfToken() }
     }
 
     // --- 백업 내보내기 (요청형·카테고리 선택, SAF — 무료) ---

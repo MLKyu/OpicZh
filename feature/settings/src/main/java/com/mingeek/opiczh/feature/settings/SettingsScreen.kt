@@ -369,62 +369,18 @@ private fun OnDeviceModelsSection(uiState: SettingsUiState, viewModel: SettingsV
 
                     ModelStatus.NotInstalled -> Button(
                         onClick = { viewModel.downloadModel(spec) },
-                        enabled = !spec.requiresHfToken || uiState.hfTokenSet,
                     ) {
-                        Text(
-                            if (spec.requiresHfToken && !uiState.hfTokenSet) {
-                                "다운로드 (HF 토큰 필요)"
-                            } else {
-                                "다운로드"
-                            },
-                        )
+                        Text("다운로드")
                     }
                 }
             }
         }
 
-        // HuggingFace 토큰 (게이트 모델용)
         Text(
-            text = "Gemma 계열은 HuggingFace에서 라이선스 동의 후 토큰이 필요합니다. Qwen3는 토큰 없이 받을 수 있습니다.",
+            text = "모든 추천·기본 모델은 무료라 토큰이나 로그인 없이 바로 다운로드됩니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (uiState.hfTokenSet) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    "HuggingFace 토큰 등록됨",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = viewModel::clearHfToken) { Text("삭제") }
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = uiState.hfTokenInput,
-                    onValueChange = viewModel::onHfTokenInputChange,
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    label = { Text("HuggingFace 토큰 (선택)") },
-                    visualTransformation = PasswordVisualTransformation(),
-                )
-                Button(
-                    onClick = viewModel::saveHfToken,
-                    enabled = uiState.hfTokenInput.isNotBlank(),
-                ) { Text("저장") }
-            }
-        }
     }
 }
 
@@ -490,8 +446,7 @@ private fun RecommendationBlock(uiState: SettingsUiState, viewModel: SettingsVie
         Text(text = record.reasonKo, style = MaterialTheme.typography.bodySmall)
         Text(
             text = "${record.decidedBy} · 후보 ${record.candidatesConsidered}개 검토 · $dateText 조회 · " +
-                "약 ${spec.approxSizeMb / 1000.0}GB" +
-                if (spec.requiresHfToken) " · HF 토큰 필요" else "",
+                "약 ${spec.approxSizeMb / 1000.0}GB · 무료",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -538,10 +493,7 @@ private fun RecommendationBlock(uiState: SettingsUiState, viewModel: SettingsVie
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                Button(
-                    onClick = viewModel::upgradeToRecommended,
-                    enabled = !spec.requiresHfToken || uiState.hfTokenSet,
-                ) {
+                Button(onClick = viewModel::upgradeToRecommended) {
                     Text(
                         if (uiState.activeModelFileName != null) {
                             "추천 모델로 교체 (기존 모델 자동 삭제)"
