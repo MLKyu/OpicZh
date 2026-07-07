@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.mingeek.opiczh.core.common.RemoteTuning
 import com.mingeek.opiczh.core.data.security.ApiKeyCipher
 import com.mingeek.opiczh.core.model.AppSettings
 import com.mingeek.opiczh.core.model.DefaultModels
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 class SettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val cipher: ApiKeyCipher,
+    private val remoteTuning: RemoteTuning,
 ) {
 
     private object Keys {
@@ -38,9 +40,16 @@ class SettingsRepository @Inject constructor(
             targetGrade = prefs[Keys.TARGET_GRADE]?.let { name ->
                 TargetGrade.entries.firstOrNull { it.name == name }
             } ?: TargetGrade.DEFAULT,
-            textModelId = prefs[Keys.TEXT_MODEL_ID] ?: DefaultModels.TEXT,
-            ttsModelId = prefs[Keys.TTS_MODEL_ID] ?: DefaultModels.TTS,
-            ttsVoice = prefs[Keys.TTS_VOICE] ?: DefaultModels.TTS_VOICE,
+            // 우선순위: 사용자가 직접 고른 값 > Remote Config 원격 기본값 > 하드코딩 기본값
+            textModelId = prefs[Keys.TEXT_MODEL_ID]
+                ?: remoteTuning.string(RemoteTuning.Keys.TEXT_MODEL_DEFAULT)
+                ?: DefaultModels.TEXT,
+            ttsModelId = prefs[Keys.TTS_MODEL_ID]
+                ?: remoteTuning.string(RemoteTuning.Keys.TTS_MODEL_DEFAULT)
+                ?: DefaultModels.TTS,
+            ttsVoice = prefs[Keys.TTS_VOICE]
+                ?: remoteTuning.string(RemoteTuning.Keys.TTS_VOICE_DEFAULT)
+                ?: DefaultModels.TTS_VOICE,
             routingPolicy = prefs[Keys.ROUTING_POLICY]?.let { name ->
                 RoutingPolicy.entries.firstOrNull { it.name == name }
             } ?: RoutingPolicy.AUTO,

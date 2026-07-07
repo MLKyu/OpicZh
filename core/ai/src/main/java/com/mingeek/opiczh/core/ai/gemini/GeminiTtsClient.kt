@@ -2,6 +2,7 @@ package com.mingeek.opiczh.core.ai.gemini
 
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.AppTracer
 import com.mingeek.opiczh.core.common.WavCodec
 import com.mingeek.opiczh.core.common.retryWithBackoff
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
@@ -24,6 +25,7 @@ class GeminiTtsClient @Inject constructor(
     private val apiKeyHolder: ApiKeyHolder,
     private val settingsRepository: SettingsRepository,
     private val json: Json,
+    private val tracer: AppTracer,
 ) : RemoteTtsSynthesizer {
 
     override suspend fun cacheKey(text: String): String {
@@ -49,7 +51,9 @@ class GeminiTtsClient @Inject constructor(
                 ),
             ),
         )
-        return retryWithBackoff { call(settings.ttsModelId, body) }
+        return tracer.trace("tts_synthesize", "chars" to text.length.toString()) {
+            retryWithBackoff { call(settings.ttsModelId, body) }
+        }
     }
 
     private suspend fun call(model: String, body: GenerateContentRequest): AppResult<ByteArray> =

@@ -10,6 +10,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelManager
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.AppTracer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
 import javax.inject.Inject
@@ -29,6 +30,7 @@ import kotlinx.coroutines.withContext
 class OnDeviceLlmEngine @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val modelManager: OnDeviceModelManager,
+    private val tracer: AppTracer,
 ) : LlmEngine {
 
     override val id: LlmEngineId = LlmEngineId.ON_DEVICE
@@ -48,7 +50,16 @@ class OnDeviceLlmEngine @Inject constructor(
         val modelFile = modelManager.readyModelFile()
             ?: return AppResult.failure(AppError.OnDeviceUnavailable())
 
-        return withContext(Dispatchers.Default) {
+        return tracer.trace("ondevice_generate", "model" to modelFile.name) {
+            generateWithModel(modelFile, request)
+        }
+    }
+
+    private suspend fun generateWithModel(
+        modelFile: java.io.File,
+        request: LlmRequest,
+    ): AppResult<LlmReply> =
+        withContext(Dispatchers.Default) {
             try {
                 val loadedEngine = obtainEngine(modelFile.absolutePath)
                 val prompt = buildPrompt(request)
@@ -77,7 +88,6 @@ class OnDeviceLlmEngine @Inject constructor(
                 AppResult.failure(AppError.OnDeviceUnavailable("온디바이스 추론 실패: ${t.message}"))
             }
         }
-    }
 
     /** 메모리 확보가 필요할 때 (예: 시험 채점 전) 명시적으로 내릴 수 있다 */
     suspend fun unload() {

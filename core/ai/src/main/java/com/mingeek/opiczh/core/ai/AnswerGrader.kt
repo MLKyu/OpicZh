@@ -2,6 +2,8 @@ package com.mingeek.opiczh.core.ai
 
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.AppTracer
+import com.mingeek.opiczh.core.common.RemoteTuning
 import com.mingeek.opiczh.core.common.errorOrNull
 import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.model.AnswerFeedback
@@ -30,6 +32,8 @@ import kotlinx.serialization.json.putJsonObject
 @Singleton
 class AnswerGrader @Inject constructor(
     private val router: LlmRouter,
+    private val tracer: AppTracer,
+    private val remoteTuning: RemoteTuning,
 ) {
 
     private val json = Json {
@@ -38,6 +42,17 @@ class AnswerGrader @Inject constructor(
     }
 
     suspend fun grade(
+        question: Question,
+        audioFile: File,
+        target: TargetGrade,
+    ): AppResult<AnswerFeedback> = tracer.trace(
+        "grade_answer",
+        "question_type" to question.type.name,
+    ) {
+        gradeInternal(question, audioFile, target)
+    }
+
+    private suspend fun gradeInternal(
         question: Question,
         audioFile: File,
         target: TargetGrade,
@@ -51,7 +66,9 @@ class AnswerGrader @Inject constructor(
                 LlmPart.Audio(bytes = bytes, mimeType = "audio/mp4"),
                 LlmPart.Text(buildPrompt(question, target)),
             ),
-            systemPrompt = SYSTEM_PROMPT,
+            // Remote Config로 채점 프롬프트를 재빌드 없이 교체할 수 있다
+            systemPrompt = remoteTuning.string(RemoteTuning.Keys.GRADING_SYSTEM_PROMPT)
+                ?: SYSTEM_PROMPT,
             responseJsonSchema = FEEDBACK_SCHEMA,
             temperature = 0.2f,
             maxOutputTokens = 8_192,

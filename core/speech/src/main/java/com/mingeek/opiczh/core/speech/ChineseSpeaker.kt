@@ -2,6 +2,7 @@ package com.mingeek.opiczh.core.speech
 
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.ChineseSentenceChunker
+import com.mingeek.opiczh.core.common.CrashReporter
 import com.mingeek.opiczh.core.speech.player.AudioFilePlayer
 import com.mingeek.opiczh.core.speech.tts.TtsAudioCache
 import com.mingeek.opiczh.core.speech.tts.TtsSpeaker
@@ -29,6 +30,7 @@ class ChineseSpeaker @Inject constructor(
     private val cache: TtsAudioCache,
     private val filePlayer: AudioFilePlayer,
     private val systemTts: TtsSpeaker,
+    private val crashReporter: CrashReporter,
 ) {
 
     private val _state = MutableStateFlow<SpeakerState>(SpeakerState.Idle)
@@ -81,6 +83,7 @@ class ChineseSpeaker @Inject constructor(
 
             if (file == null) {
                 // 원격 합성 실패 → 남은 텍스트는 시스템 TTS로 이어서
+                crashReporter.log("tts: 원격 합성 실패, 시스템 TTS 폴백 (청크 ${i + 1}/${chunks.size})")
                 prefetched.cancel()
                 val remaining = chunks.drop(i).joinToString("")
                 return@coroutineScope speakWithSystemTts(remaining)
@@ -89,6 +92,7 @@ class ChineseSpeaker @Inject constructor(
             _state.value = SpeakerState.Playing(i + 1, chunks.size)
             val played = filePlayer.play(file)
             if (played is AppResult.Failure) {
+                crashReporter.log("tts: 재생 실패 (청크 ${i + 1}/${chunks.size}) ${played.error}")
                 prefetched.cancel()
                 return@coroutineScope played
             }
