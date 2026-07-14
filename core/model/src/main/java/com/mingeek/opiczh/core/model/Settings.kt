@@ -13,7 +13,9 @@ enum class RoutingPolicy(val ko: String) {
 
 /**
  * 기본 모델 ID. 모델명은 언제든 바뀔 수 있으므로 하드코딩하지 않고
- * 설정값 + models.list 동적 조회로 관리하며, 여기는 초기 기본값만 둔다.
+ * models.list 동적 조회로 관리하며, 여기는 조회 전(첫 실행·오프라인) 기본값만 둔다.
+ * 텍스트 모델은 사용자가 고르지 않는다 — 키로 쓸 수 있는 모델을 자동 서열화해
+ * 좋은 모델부터 쓰고, 한도가 차면 다음 모델로 자동 전환한다 (ModelChain).
  */
 object DefaultModels {
     const val TEXT: String = "gemini-3.5-flash"
@@ -25,7 +27,6 @@ object DefaultModels {
 data class AppSettings(
     val hasApiKey: Boolean = false,
     val targetGrade: TargetGrade = TargetGrade.DEFAULT,
-    val textModelId: String = DefaultModels.TEXT,
     val ttsModelId: String = DefaultModels.TTS,
     val ttsVoice: String = DefaultModels.TTS_VOICE,
     val routingPolicy: RoutingPolicy = RoutingPolicy.AUTO,

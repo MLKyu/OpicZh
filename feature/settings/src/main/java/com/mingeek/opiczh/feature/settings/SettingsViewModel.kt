@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.ApiUsage
 import com.mingeek.opiczh.core.ai.UsageTracker
 import com.mingeek.opiczh.core.ai.gemini.GeminiModelCatalog
-import com.mingeek.opiczh.core.ai.gemini.LlmModelInfo
+import com.mingeek.opiczh.core.ai.gemini.ModelChainProvider
 import com.mingeek.opiczh.core.ai.ondevice.ModelRecommender
 import com.mingeek.opiczh.core.ai.ondevice.ModelStatus
 import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModelManager
@@ -14,14 +14,19 @@ import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModels
 import android.content.Context
 import android.net.Uri
 import com.mingeek.opiczh.core.ai.ondevice.RecommendationRecord
+import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.backup.BackupArchiver
 import com.mingeek.opiczh.core.data.backup.BackupSelection
+import com.mingeek.opiczh.core.data.exam.ExamRepository
+import com.mingeek.opiczh.core.data.settings.ModelChainStore
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
+import com.mingeek.opiczh.core.speech.ChineseSpeaker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.mingeek.opiczh.core.model.AppSettings
 import com.mingeek.opiczh.core.model.RoutingPolicy
@@ -44,12 +49,29 @@ sealed interface KeyStatus {
     data class Invalid(val messageKo: String) : KeyStatus
 }
 
+/** 자동 모델 체인의 한 항목 — cooldownUntilMs가 있으면 그 시각까지 한도 초과 */
+data class ModelChainEntry(
+    val modelId: String,
+    val cooldownUntilMs: Long?,
+)
+
+data class ModelChainUi(
+    val entries: List<ModelChainEntry> = emptyList(),
+    val refreshing: Boolean = false,
+)
+
+/** 문항 음성 미리 준비(선합성) 진행 상태 */
+data class PresynthUi(
+    val running: Boolean = false,
+    val done: Int = 0,
+    val total: Int = 0,
+    val message: String? = null,
+)
+
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val apiKeyInput: String = "",
     val keyStatus: KeyStatus = KeyStatus.Idle,
-    val availableModels: List<LlmModelInfo> = emptyList(),
-    val loadingModels: Boolean = false,
     // 온디바이스 모델
     val onDeviceSpecs: List<OnDeviceModelSpec> = OnDeviceModels.ALL,
     val onDeviceStatuses: Map<String, ModelStatus> = emptyMap(),
@@ -71,8 +93,6 @@ data class SettingsUiState(
 private data class KeyPanel(
     val input: String,
     val status: KeyStatus,
-    val models: List<LlmModelInfo>,
-    val loading: Boolean,
 )
 
 private data class RecPanel(
@@ -100,6 +120,10 @@ private data class BackupPanel(
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val modelCatalog: GeminiModelCatalog,
+    private val modelChainProvider: ModelChainProvider,
+    private val modelChainStore: ModelChainStore,
+    private val examRepository: ExamRepository,
+    private val speaker: ChineseSpeaker,
     private val modelManager: OnDeviceModelManager,
     private val modelRecommender: ModelRecommender,
     private val backupArchiver: BackupArchiver,
@@ -112,8 +136,7 @@ class SettingsViewModel @Inject constructor(
 
     private val apiKeyInput = MutableStateFlow("")
     private val keyStatus = MutableStateFlow<KeyStatus>(KeyStatus.Idle)
-    private val availableModels = MutableStateFlow<List<LlmModelInfo>>(emptyList())
-    private val loadingModels = MutableStateFlow(false)
+    private val refreshingChain = MutableStateFlow(false)
     private val onDeviceStatuses = MutableStateFlow<Map<String, ModelStatus>>(emptyMap())
     private val loadingRecommendation = MutableStateFlow(false)
     private val recommendationError = MutableStateFlow<String?>(null)
@@ -127,10 +150,33 @@ class SettingsViewModel @Inject constructor(
     /** statusFlow 수집을 시작한 스펙 id (중복 수집 방지) */
     private val watchedSpecIds = mutableSetOf<String>()
 
-    private val keyPanel = combine(apiKeyInput, keyStatus, availableModels, loadingModels) {
-            input, status, models, loading ->
-        KeyPanel(input, status, models, loading)
+    private val keyPanel = combine(apiKeyInput, keyStatus) { input, status ->
+        KeyPanel(input, status)
     }
+
+    /** 자동 모델 체인 현황 (좋은 모델부터, 한도 초과 모델은 해제 시각 표시) */
+    val modelChain: StateFlow<ModelChainUi> = combine(
+        modelChainStore.chain,
+        modelChainStore.cooldowns,
+        refreshingChain,
+    ) { chain, cooldowns, refreshing ->
+        val now = System.currentTimeMillis()
+        ModelChainUi(
+            entries = chain.map { id ->
+                ModelChainEntry(modelId = id, cooldownUntilMs = cooldowns[id]?.takeIf { it > now })
+            },
+            refreshing = refreshing,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ModelChainUi(),
+    )
+
+    /** 문항 음성 선합성 진행 상태 */
+    private val presynthState = MutableStateFlow(PresynthUi())
+    val presynth: StateFlow<PresynthUi> = presynthState
+    private var presynthJob: Job? = null
 
     private val recPanel = combine(
         modelManager.recommendation,
@@ -170,8 +216,6 @@ class SettingsViewModel @Inject constructor(
             settings = settings,
             apiKeyInput = key.input,
             keyStatus = key.status,
-            availableModels = key.models,
-            loadingModels = key.loading,
             onDeviceStatuses = onDevice.statuses,
             recommendation = onDevice.rec.recommendation,
             activeModelFileName = onDevice.rec.activeFileName,
@@ -234,7 +278,8 @@ class SettingsViewModel @Inject constructor(
                     settingsRepository.setApiKey(candidate)
                     apiKeyInput.value = ""
                     keyStatus.value = KeyStatus.Valid(count)
-                    refreshModels(candidate)
+                    // 새 키로 쓸 수 있는 모델을 즉시 서열화해 둔다
+                    modelChainProvider.refresh(candidate)
                 }
                 .onFailure { error ->
                     keyStatus.value = KeyStatus.Invalid(error.userMessageKo())
@@ -245,23 +290,22 @@ class SettingsViewModel @Inject constructor(
     fun clearKey() {
         viewModelScope.launch {
             settingsRepository.clearApiKey()
-            availableModels.value = emptyList()
             keyStatus.value = KeyStatus.Idle
         }
     }
 
-    /** @param apiKeyOverride 방금 검증한 키(홀더 갱신 레이스 회피용) */
-    fun refreshModels(apiKeyOverride: String? = null) {
-        loadingModels.value = true
+    /** 자동 모델 체인 재조회 (models.list → 서열화) */
+    fun refreshModelChain() {
+        if (refreshingChain.value) return
+        refreshingChain.value = true
         viewModelScope.launch {
-            modelCatalog.listTextModels(apiKeyOverride)
-                .onSuccess { models -> availableModels.value = models }
+            modelChainProvider.refresh()
                 .onFailure { error ->
                     if (keyStatus.value is KeyStatus.Idle) {
                         keyStatus.value = KeyStatus.Invalid(error.userMessageKo())
                     }
                 }
-            loadingModels.update { false }
+            refreshingChain.value = false
         }
     }
 
@@ -271,12 +315,49 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setTargetGrade(grade) }
     }
 
-    fun setTextModel(modelId: String) {
-        viewModelScope.launch { settingsRepository.setTextModelId(modelId) }
-    }
-
     fun setRoutingPolicy(policy: RoutingPolicy) {
         viewModelScope.launch { settingsRepository.setRoutingPolicy(policy) }
+    }
+
+    // --- 문항 음성 미리 준비 (선합성) ---
+
+    /**
+     * 문제은행 전체 문항 음성을 미리 합성해 영구 캐시에 저장한다.
+     * 준비가 끝나면 시험·연습 중 TTS 호출이 없어 무료 한도를 아끼고 오프라인 재생도 된다.
+     * 페이서가 TTS 분당 한도에 맞춰 간격을 조절하므로 수십 분 걸릴 수 있다.
+     */
+    fun startPresynth() {
+        if (presynthState.value.running) return
+        presynthJob = viewModelScope.launch {
+            val questions = examRepository.questionPool()
+            presynthState.value = PresynthUi(running = true, done = 0, total = questions.size)
+            questions.forEachIndexed { index, question ->
+                when (val result = speaker.prefetch(question.zh)) {
+                    is AppResult.Success ->
+                        presynthState.update { it.copy(done = index + 1) }
+                    is AppResult.Failure -> {
+                        presynthState.update {
+                            it.copy(
+                                running = false,
+                                message = "${index}개 준비 후 중단 — ${result.error.userMessageKo()} " +
+                                    "준비된 문항은 저장되었고, 다시 누르면 이어서 진행합니다.",
+                            )
+                        }
+                        return@launch
+                    }
+                }
+            }
+            presynthState.update {
+                it.copy(running = false, message = "완료 — ${questions.size}개 문항 음성이 저장되었습니다.")
+            }
+        }
+    }
+
+    fun cancelPresynth() {
+        presynthJob?.cancel()
+        presynthState.update {
+            it.copy(running = false, message = "중단됨 — 이미 준비된 문항은 유지되며, 다시 누르면 이어서 진행합니다.")
+        }
     }
 
     // --- 모델 추천/교체 ---

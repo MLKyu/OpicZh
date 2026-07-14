@@ -3,7 +3,6 @@ package com.mingeek.opiczh.core.ai
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.AppTracer
-import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.common.map
 import java.io.File
 import javax.inject.Inject
@@ -38,8 +37,7 @@ class AnswerTranscriber @Inject constructor(
             temperature = 0.1f,
         )
         return tracer.trace("transcribe_answer", "audio_kb" to (bytes.size / 1024).toString()) {
-            router.engineFor(AiTask.TRANSCRIPTION)
-                .flatMap { engine -> engine.generate(request) }
+            router.generate(AiTask.TRANSCRIPTION, request)
                 .map { reply -> reply.text.trim() }
         }
     }

@@ -18,7 +18,14 @@ sealed class AppError {
         ApiKeyMissing -> "Gemini API 키가 등록되지 않았습니다. 설정에서 키를 등록해 주세요."
         is ApiKeyInvalid -> "API 키가 유효하지 않습니다. 키를 다시 확인해 주세요."
         is Network -> "네트워크에 연결할 수 없습니다. 연결 상태를 확인해 주세요."
-        is RateLimited -> "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+        is RateLimited -> when {
+            retryAfterSec == null -> "요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+            retryAfterSec >= 3600 ->
+                "오늘 무료 사용량을 모두 썼습니다. 한도는 한국 시간 오후 4~5시경 초기화됩니다."
+            retryAfterSec >= 60 ->
+                "요청 한도를 초과했습니다. 약 ${retryAfterSec / 60}분 후 다시 시도해 주세요."
+            else -> "요청 한도를 초과했습니다. 약 ${retryAfterSec}초 후 다시 시도해 주세요."
+        }
         is Server -> "Gemini 서버 오류가 발생했습니다. (코드 $code)"
         is BadRequest -> "요청이 거부되었습니다." + (detail?.let { " ($it)" } ?: "")
         is Parsing -> "AI 응답을 해석하지 못했습니다. 다시 시도해 주세요."

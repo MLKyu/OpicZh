@@ -8,24 +8,28 @@ import com.mingeek.opiczh.core.data.study.StudyRepository
 import com.mingeek.opiczh.core.model.AppSettings
 import com.mingeek.opiczh.core.model.ExamStatus
 import com.mingeek.opiczh.core.model.ExamSummary
+import com.mingeek.opiczh.core.model.PendingGrading
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val settings: AppSettings = AppSettings(),
     /** 최근 채점 완료 세션 (최신순) */
     val recentSessions: List<ExamSummary> = emptyList(),
     val srsDueCount: Int = 0,
+    /** 채점이 끝나지 않은 보관 세션 — 답변 녹음은 전부 저장돼 있다 */
+    val pendingGrading: List<PendingGrading> = emptyList(),
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
-    examRepository: ExamRepository,
+    private val examRepository: ExamRepository,
     studyRepository: StudyRepository,
 ) : ViewModel() {
 
@@ -33,17 +37,24 @@ class HomeViewModel @Inject constructor(
         settingsRepository.settings,
         examRepository.sessionSummaries(),
         studyRepository.dueCountFlow(System.currentTimeMillis()),
-    ) { settings, sessions, dueCount ->
+        examRepository.pendingGradingFlow(),
+    ) { settings, sessions, dueCount, pending ->
         HomeUiState(
             settings = settings,
             recentSessions = sessions
                 .filter { it.status == ExamStatus.GRADED && it.overallGrade != null }
                 .take(10),
             srsDueCount = dueCount,
+            pendingGrading = pending,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = HomeUiState(),
     )
+
+    /** 채점 대기 세션을 명시적으로 버린다 (녹음·답변을 더는 채점하지 않을 때) */
+    fun discardPendingSession(sessionId: String) {
+        viewModelScope.launch { examRepository.abortSession(sessionId) }
+    }
 }

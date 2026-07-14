@@ -107,4 +107,6 @@ data class GeminiErrorDto(
     val code: Int? = null,
     val message: String? = null,
     val status: String? = null,
+    /** google.rpc 표준 상세 (429의 RetryInfo.retryDelay가 여기 실림) */
+    val details: List<JsonObject>? = null,
 )

@@ -9,6 +9,9 @@ import javax.inject.Singleton
 /**
  * 합성된 음성 파일 캐시. 같은 문장은 다시 합성하지 않는다 (쿼터·지연 절약,
  * 시험 중 네트워크 문제에도 재생 보장).
+ *
+ * filesDir에 저장한다 — cacheDir는 저장공간 부족 시 시스템이 비울 수 있어,
+ * 무료 TTS 한도를 들여 합성한 문항 음성이 사라지면 다음 시험에서 한도를 다시 쓰게 된다.
  */
 @Singleton
 class TtsAudioCache @Inject constructor(
@@ -16,7 +19,20 @@ class TtsAudioCache @Inject constructor(
 ) {
 
     private val dir: File by lazy {
-        File(context.cacheDir, "tts").apply { mkdirs() }
+        val target = File(context.filesDir, "tts").apply { mkdirs() }
+        migrateLegacyCache(target)
+        target
+    }
+
+    /** 구버전 cacheDir/tts에 남은 합성분을 옮겨 재합성을 막는다 */
+    private fun migrateLegacyCache(target: File) {
+        val legacy = File(context.cacheDir, "tts")
+        if (!legacy.isDirectory) return
+        legacy.listFiles()?.forEach { file ->
+            val moved = File(target, file.name)
+            if (moved.exists() || !file.renameTo(moved)) file.delete()
+        }
+        legacy.delete()
     }
 
     fun get(key: String): File? =

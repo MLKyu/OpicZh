@@ -75,6 +75,50 @@ class GeminiDtoParsingTest {
     }
 
     @Test
+    fun `maps 429 with RetryInfo to RateLimited with retryAfterSec`() {
+        val fixture = """
+            {
+              "error": {
+                "code": 429,
+                "message": "You exceeded your current quota, please check your plan and billing details.",
+                "status": "RESOURCE_EXHAUSTED",
+                "details": [
+                  {
+                    "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+                    "violations": [{"quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests"}]
+                  },
+                  {
+                    "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                    "retryDelay": "27.5s"
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+        val error = GeminiErrorMapper.fromResponse(429, fixture, json)
+        assertTrue(error is com.mingeek.opiczh.core.common.AppError.RateLimited)
+        assertEquals(28, (error as com.mingeek.opiczh.core.common.AppError.RateLimited).retryAfterSec)
+    }
+
+    @Test
+    fun `maps 429 without RetryInfo using Retry-After header`() {
+        val error = GeminiErrorMapper.fromResponse(
+            code = 429,
+            errorBody = """{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"quota"}}""",
+            json = json,
+            retryAfterHeaderSec = 40,
+        )
+        assertEquals(40, (error as com.mingeek.opiczh.core.common.AppError.RateLimited).retryAfterSec)
+    }
+
+    @Test
+    fun `maps bare 429 to RateLimited with null retryAfter`() {
+        val error = GeminiErrorMapper.fromResponse(429, null, json)
+        assertTrue(error is com.mingeek.opiczh.core.common.AppError.RateLimited)
+        assertEquals(null, (error as com.mingeek.opiczh.core.common.AppError.RateLimited).retryAfterSec)
+    }
+
+    @Test
     fun `parses models list and filters generateContent`() {
         val fixture = """
             {

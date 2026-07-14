@@ -28,6 +28,27 @@ data class GradedAnswer(
     val feedback: AnswerFeedback,
 )
 
+/**
+ * 채점이 끝나지 않은 보관 세션 (홈 '채점 대기함' 표시 단위).
+ * 답변 녹음·문항은 전부 저장돼 있으므로 앱이 죽든 채점이 실패하든 유실되지 않는다.
+ */
+data class PendingGrading(
+    val sessionId: String,
+    val startedAtEpochMs: Long,
+    val targetGrade: TargetGrade,
+    val answerCount: Int,
+    val gradedCount: Int,
+)
+
+/** 저장된 답변 한 건 (채점 재개용). 채점 전이면 [feedback]이 null */
+data class StoredExamAnswer(
+    val answerId: String,
+    val orderIndex: Int,
+    val question: Question,
+    val audioPath: String?,
+    val feedback: AnswerFeedback?,
+)
+
 /** 전체 시험 리포트 */
 data class ExamReport(
     val overallGrade: OpicGrade,

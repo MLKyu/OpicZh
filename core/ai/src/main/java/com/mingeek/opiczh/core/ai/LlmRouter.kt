@@ -3,6 +3,7 @@ package com.mingeek.opiczh.core.ai
 import com.mingeek.opiczh.core.ai.gemini.GeminiEngine
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
+import com.mingeek.opiczh.core.common.errorOrNull
 import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
 import com.mingeek.opiczh.core.model.RoutingPolicy
@@ -43,7 +44,21 @@ class LlmRouter @Inject constructor(
         }
     }
 
-    /** 엔진 선택 + 생성까지 한 번에 */
-    suspend fun generate(task: AiTask, request: LlmRequest): AppResult<LlmReply> =
-        engineFor(task).flatMap { engine -> engine.generate(request) }
+    /**
+     * 엔진 선택 + 생성까지 한 번에.
+     * AUTO 정책에서 클라우드가 모든 모델의 한도를 소진했을 때, 오디오가 없는 요청은
+     * 온디바이스로 이어서 처리한다 (회화·드릴은 한도와 무관하게 계속 동작).
+     */
+    suspend fun generate(task: AiTask, request: LlmRequest): AppResult<LlmReply> {
+        val result = engineFor(task).flatMap { engine -> engine.generate(request) }
+        val rateLimited = result.errorOrNull() is AppError.RateLimited
+        if (!rateLimited) return result
+
+        val policy = settingsRepository.settings.first().routingPolicy
+        val textOnly = request.parts.none { it is LlmPart.Audio }
+        if (policy == RoutingPolicy.AUTO && textOnly && onDevice.isReady()) {
+            return onDevice.generate(request)
+        }
+        return result
+    }
 }

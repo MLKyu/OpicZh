@@ -18,16 +18,12 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
@@ -49,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mingeek.opiczh.core.ai.ondevice.ModelStatus
+import com.mingeek.opiczh.core.designsystem.component.KeepScreenOn
 import com.mingeek.opiczh.core.designsystem.component.ScreenScaffold
 import com.mingeek.opiczh.core.designsystem.component.SectionCard
 import com.mingeek.opiczh.core.model.RoutingPolicy
@@ -64,6 +61,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val modelChain by viewModel.modelChain.collectAsStateWithLifecycle()
+    val presynth by viewModel.presynth.collectAsStateWithLifecycle()
 
     ScreenScaffold(title = "설정", onBack = onBack) { modifier ->
         Column(
@@ -75,7 +74,8 @@ fun SettingsScreen(
         ) {
             ApiKeySection(uiState, viewModel)
             TargetGradeSection(uiState, viewModel)
-            ModelSection(uiState, viewModel)
+            ModelSection(uiState, modelChain, viewModel)
+            PresynthSection(uiState, presynth, viewModel)
             RoutingSection(uiState, viewModel)
             OnDeviceModelsSection(uiState, viewModel)
             CloudBackupSection(uiState, viewModel)
@@ -198,63 +198,74 @@ private fun TargetGradeSection(uiState: SettingsUiState, viewModel: SettingsView
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ModelSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
-    SectionCard(title = "AI 모델") {
-        var expanded by remember { mutableStateOf(false) }
-
+private fun ModelSection(
+    uiState: SettingsUiState,
+    chain: ModelChainUi,
+    viewModel: SettingsViewModel,
+) {
+    SectionCard(title = "AI 모델 (자동 관리)") {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
+            Text(
+                text = "키로 쓸 수 있는 모델을 좋은 순서로 자동 사용합니다. " +
+                    "무료 한도가 찬 모델은 건너뛰고 다음 모델로 자동 전환돼요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
-            ) {
-                OutlinedTextField(
-                    value = uiState.settings.textModelId,
-                    onValueChange = {},
-                    readOnly = true,
-                    singleLine = true,
-                    label = { Text("채점·피드백 모델") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth(),
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    uiState.availableModels.forEach { model ->
-                        DropdownMenuItem(
-                            text = { Text(model.id) },
-                            onClick = {
-                                viewModel.setTextModel(model.id)
-                                expanded = false
-                            },
-                        )
-                    }
-                    if (uiState.availableModels.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text("키 등록 후 새로고침을 눌러 목록을 불러오세요") },
-                            onClick = { expanded = false },
-                        )
-                    }
-                }
-            }
-            if (uiState.loadingModels) {
+            )
+            if (chain.refreshing) {
                 CircularProgressIndicator(modifier = Modifier.padding(4.dp))
             } else {
-                IconButton(onClick = { viewModel.refreshModels() }) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "모델 목록 새로고침")
+                IconButton(onClick = viewModel::refreshModelChain) {
+                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "모델 체인 새로고침")
                 }
             }
         }
+
+        if (chain.entries.isEmpty()) {
+            Text(
+                text = "API 키를 등록하면 사용 가능한 모델을 자동으로 정렬해 보여드립니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            chain.entries.forEachIndexed { index, entry ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "${index + 1}. ${entry.modelId}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val until = entry.cooldownUntilMs
+                    if (until == null) {
+                        Text(
+                            text = "사용 가능",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        val untilText = remember(until) {
+                            SimpleDateFormat("HH:mm", Locale.KOREA).format(Date(until))
+                        }
+                        Text(
+                            text = "한도 초과 · ${untilText}까지",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+
         Text(
-            text = "TTS 모델: ${uiState.settings.ttsModelId} (음성 학습 기능에서 사용)",
+            text = "TTS 모델: ${uiState.settings.ttsModelId} (한도 초과 시 시스템 음성으로 자동 대체)",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -262,6 +273,65 @@ private fun ModelSection(uiState: SettingsUiState, viewModel: SettingsViewModel)
         if (usage.requests > 0) {
             Text(
                 text = "이번 세션 사용량: 요청 ${usage.requests}회 · 입력 ${usage.promptTokens} · 출력 ${usage.outputTokens} 토큰",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PresynthSection(
+    uiState: SettingsUiState,
+    presynth: PresynthUi,
+    viewModel: SettingsViewModel,
+) {
+    SectionCard(title = "문항 음성 미리 준비") {
+        Text(
+            text = "문제은행 전체 문항의 질문 음성을 미리 합성해 기기에 저장합니다. " +
+                "한 번 준비해 두면 시험·연습 중 TTS 호출이 없어 무료 한도를 아끼고, " +
+                "오프라인에서도 자연 음성으로 재생됩니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (presynth.running) {
+            KeepScreenOn()
+            LinearProgressIndicator(
+                progress = {
+                    if (presynth.total == 0) 0f
+                    else (presynth.done.toFloat() / presynth.total).coerceIn(0f, 1f)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "합성 중… ${presynth.done}/${presynth.total} " +
+                        "(무료 한도에 맞춰 천천히 진행됩니다. 화면을 켜 두세요)",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = viewModel::cancelPresynth) { Text("중단") }
+            }
+        } else {
+            Button(
+                onClick = viewModel::startPresynth,
+                enabled = uiState.settings.hasApiKey,
+            ) { Text("음성 준비 시작") }
+            if (!uiState.settings.hasApiKey) {
+                Text(
+                    text = "API 키 등록 후 사용할 수 있습니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        presynth.message?.let { message ->
+            Text(
+                text = message,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

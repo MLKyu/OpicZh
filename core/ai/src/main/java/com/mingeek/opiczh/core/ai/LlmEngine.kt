@@ -43,6 +43,8 @@ data class LlmReply(
     val text: String,
     val promptTokens: Int? = null,
     val outputTokens: Int? = null,
+    /** 실제 응답을 생성한 모델 (자동 체인 전환 추적용) */
+    val modelId: String? = null,
 )
 
 /** 클라우드(Gemini)/온디바이스(LiteRT-LM) 공통 인터페이스 */
