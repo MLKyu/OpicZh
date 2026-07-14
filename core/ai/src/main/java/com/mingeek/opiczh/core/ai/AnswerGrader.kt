@@ -6,6 +6,7 @@ import com.mingeek.opiczh.core.common.AppTracer
 import com.mingeek.opiczh.core.common.RemoteTuning
 import com.mingeek.opiczh.core.common.errorOrNull
 import com.mingeek.opiczh.core.common.flatMap
+import com.mingeek.opiczh.core.common.map
 import com.mingeek.opiczh.core.model.AnswerFeedback
 import com.mingeek.opiczh.core.model.OpicGrade
 import com.mingeek.opiczh.core.model.Question
@@ -77,9 +78,12 @@ class AnswerGrader @Inject constructor(
         // 파싱 실패는 LLM 비결정성일 수 있어 1회 재시도한다
         var lastError: AppError? = null
         repeat(2) {
-            val result = router.engineFor(AiTask.GRADING)
-                .flatMap { engine -> engine.generate(request) }
-                .flatMap { reply -> parseFeedback(reply.text) }
+            val result = router.generate(AiTask.GRADING, request)
+                .flatMap { reply ->
+                    parseFeedback(reply.text)
+                        // 스키마 밖 필드: 어느 모델이 채점했는지 스탬프 (자동 체인 전환 추적)
+                        .map { feedback -> feedback.copy(gradedBy = reply.modelId) }
+                }
             when (result) {
                 is AppResult.Success -> return result
                 is AppResult.Failure -> {

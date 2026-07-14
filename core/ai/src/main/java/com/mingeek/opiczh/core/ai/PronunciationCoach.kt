@@ -2,7 +2,6 @@ package com.mingeek.opiczh.core.ai
 
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
-import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.common.map
 import java.io.File
 import javax.inject.Inject
@@ -34,18 +33,15 @@ class PronunciationCoach @Inject constructor(
             형식 없이 자연스러운 코치의 말투로, 6줄 이내.
         """.trimIndent()
 
-        return router.engineFor(AiTask.DRILL_FEEDBACK)
-            .flatMap { engine ->
-                engine.generate(
-                    LlmRequest(
-                        parts = listOf(
-                            LlmPart.Audio(bytes = bytes, mimeType = "audio/mp4"),
-                            LlmPart.Text(prompt),
-                        ),
-                        temperature = 0.3f,
-                    ),
-                )
-            }
-            .map { it.text.trim() }
+        return router.generate(
+            AiTask.DRILL_FEEDBACK,
+            LlmRequest(
+                parts = listOf(
+                    LlmPart.Audio(bytes = bytes, mimeType = "audio/mp4"),
+                    LlmPart.Text(prompt),
+                ),
+                temperature = 0.3f,
+            ),
+        ).map { it.text.trim() }
     }
 }

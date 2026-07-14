@@ -52,4 +52,9 @@ data class AnswerFeedback(
     /** 복습 큐로 유입되는 약점 태그 (예: "성조-3성", "과거시제") */
     val weaknessTags: List<String> = emptyList(),
     val advice: String = "",
+    /**
+     * 이 답변을 실제로 채점한 모델 ID. LLM 응답 스키마에는 없고 파싱 후 앱이 스탬프한다.
+     * 자동 모델 전환으로 하위 모델이 채점했는지 리포트에서 확인하는 용도.
+     */
+    val gradedBy: String? = null,
 )

@@ -28,7 +28,6 @@ class SettingsRepository @Inject constructor(
     private object Keys {
         val API_KEY_ENCRYPTED = stringPreferencesKey("api_key_encrypted")
         val TARGET_GRADE = stringPreferencesKey("target_grade")
-        val TEXT_MODEL_ID = stringPreferencesKey("text_model_id")
         val TTS_MODEL_ID = stringPreferencesKey("tts_model_id")
         val TTS_VOICE = stringPreferencesKey("tts_voice")
         val ROUTING_POLICY = stringPreferencesKey("routing_policy")
@@ -42,9 +41,6 @@ class SettingsRepository @Inject constructor(
                 TargetGrade.entries.firstOrNull { it.name == name }
             } ?: TargetGrade.DEFAULT,
             // 우선순위: 사용자가 직접 고른 값 > Remote Config 원격 기본값 > 하드코딩 기본값
-            textModelId = prefs[Keys.TEXT_MODEL_ID]
-                ?: remoteTuning.string(RemoteTuning.Keys.TEXT_MODEL_DEFAULT)
-                ?: DefaultModels.TEXT,
             ttsModelId = prefs[Keys.TTS_MODEL_ID]
                 ?: remoteTuning.string(RemoteTuning.Keys.TTS_MODEL_DEFAULT)
                 ?: DefaultModels.TTS,
@@ -82,10 +78,6 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setTargetGrade(grade: TargetGrade) {
         dataStore.edit { it[Keys.TARGET_GRADE] = grade.name }
-    }
-
-    suspend fun setTextModelId(modelId: String) {
-        dataStore.edit { it[Keys.TEXT_MODEL_ID] = modelId.trim() }
     }
 
     suspend fun setTtsModelId(modelId: String) {

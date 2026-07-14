@@ -22,7 +22,10 @@ import kotlinx.serialization.Serializable
 data object HomeKey : NavKey
 
 @Serializable
-data object ExamKey : NavKey
+data class ExamKey(
+    /** null이면 새 시험, 값이 있으면 홈 '채점 대기함'에서 이어서 채점 */
+    val resumeSessionId: String? = null,
+) : NavKey
 
 @Serializable
 data object StudyKey : NavKey
@@ -58,13 +61,19 @@ fun OpicApp() {
         entryProvider = entryProvider {
             entry<HomeKey> {
                 HomeScreen(
-                    onStartExam = { backStack.add(ExamKey) },
+                    onStartExam = { backStack.add(ExamKey()) },
+                    onResumeGrading = { sessionId ->
+                        backStack.add(ExamKey(resumeSessionId = sessionId))
+                    },
                     onStudy = { backStack.add(StudyKey) },
                     onSettings = { backStack.add(SettingsKey) },
                 )
             }
-            entry<ExamKey> {
-                ExamScreen(onBack = { backStack.removeLastOrNull() })
+            entry<ExamKey> { key ->
+                ExamScreen(
+                    onBack = { backStack.removeLastOrNull() },
+                    resumeSessionId = key.resumeSessionId,
+                )
             }
             entry<StudyKey> {
                 StudyScreen(

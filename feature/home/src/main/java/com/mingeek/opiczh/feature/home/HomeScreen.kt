@@ -19,11 +19,13 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,6 +39,7 @@ import com.mingeek.opiczh.core.designsystem.component.SectionCard
 import com.mingeek.opiczh.core.designsystem.component.TargetGradeBadge
 import com.mingeek.opiczh.core.model.ExamSummary
 import com.mingeek.opiczh.core.model.OpicGrade
+import com.mingeek.opiczh.core.model.PendingGrading
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,6 +47,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     onStartExam: () -> Unit,
+    onResumeGrading: (sessionId: String) -> Unit,
     onStudy: () -> Unit,
     onSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -83,6 +87,14 @@ fun HomeScreen(
                 )
             }
 
+            if (uiState.pendingGrading.isNotEmpty()) {
+                PendingGradingSection(
+                    pending = uiState.pendingGrading,
+                    onResume = onResumeGrading,
+                    onDiscard = viewModel::discardPendingSession,
+                )
+            }
+
             if (uiState.recentSessions.isNotEmpty()) {
                 GradeTrendSection(uiState.recentSessions, uiState.settings.targetGrade.gradeFloor)
             }
@@ -105,6 +117,57 @@ fun HomeScreen(
                 title = "설정",
                 description = "API 키 · 목표 등급 · AI 모델 · 온디바이스 모델 · 음성 점검",
                 onClick = onSettings,
+            )
+        }
+    }
+}
+
+/**
+ * 채점이 끝나지 않은 시험 보관함. 답변 녹음은 전부 저장돼 있으므로
+ * 채점이 실패했든 앱이 죽었든 여기서 언제든 이어서 채점할 수 있다.
+ */
+@Composable
+private fun PendingGradingSection(
+    pending: List<PendingGrading>,
+    onResume: (String) -> Unit,
+    onDiscard: (String) -> Unit,
+) {
+    val dateFormat = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREA)
+    SectionCard(title = "채점 대기함") {
+        Text(
+            text = "답변 녹음이 보관된 시험입니다. 무료 한도가 풀린 뒤 이어서 채점하세요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        pending.take(3).forEach { session ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = dateFormat.format(Date(session.startedAtEpochMs)),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = "답변 ${session.answerCount}개 보관 중 · ${session.gradedCount}개 채점됨",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { onDiscard(session.sessionId) }) { Text("버리기") }
+                Button(onClick = { onResume(session.sessionId) }) { Text("이어서 채점") }
+            }
+        }
+        if (pending.size > 3) {
+            Text(
+                text = "외 ${pending.size - 3}개 세션이 더 있습니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

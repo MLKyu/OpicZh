@@ -5,6 +5,8 @@ import com.mingeek.opiczh.core.data.db.ExamDao
 import com.mingeek.opiczh.core.data.db.ExamSessionEntity
 import com.mingeek.opiczh.core.data.db.QuestionDao
 import com.mingeek.opiczh.core.data.db.QuestionEntity
+import com.mingeek.opiczh.core.model.PendingGrading
+import com.mingeek.opiczh.core.model.StoredExamAnswer
 import com.mingeek.opiczh.core.data.seed.SeedImporter
 import com.mingeek.opiczh.core.model.AnswerFeedback
 import com.mingeek.opiczh.core.model.ExamReport
@@ -124,6 +126,46 @@ class ExamRepository @Inject constructor(
         val session = examDao.session(sessionId) ?: return
         examDao.updateSession(session.copy(status = ExamStatus.ABORTED.name))
     }
+
+    /** 채점이 끝나지 않은 보관 세션 (홈 '채점 대기함') */
+    fun pendingGradingFlow(): Flow<List<PendingGrading>> =
+        examDao.pendingGradingFlow(
+            inProgressStatus = ExamStatus.IN_PROGRESS.name,
+            abortedStatus = ExamStatus.ABORTED.name,
+        ).map { rows ->
+            rows.map { row ->
+                PendingGrading(
+                    sessionId = row.sessionId,
+                    startedAtEpochMs = row.startedAtEpochMs,
+                    targetGrade = TargetGrade.entries.firstOrNull { it.name == row.targetGrade }
+                        ?: TargetGrade.DEFAULT,
+                    answerCount = row.answerCount,
+                    gradedCount = row.gradedCount,
+                )
+            }
+        }
+
+    /** 채점 재개용: 세션의 목표 등급. 세션이 없으면 null */
+    suspend fun sessionTargetGrade(sessionId: String): TargetGrade? =
+        examDao.session(sessionId)?.let { s ->
+            TargetGrade.entries.firstOrNull { it.name == s.targetGrade } ?: TargetGrade.DEFAULT
+        }
+
+    /** 채점 재개용: 세션의 저장된 답변 전체 (채점된 것은 feedback 포함) */
+    suspend fun sessionAnswers(sessionId: String): List<StoredExamAnswer> =
+        examDao.answers(sessionId).map { entity ->
+            StoredExamAnswer(
+                answerId = entity.id,
+                orderIndex = entity.orderIndex,
+                question = json.decodeFromString(Question.serializer(), entity.questionJson),
+                audioPath = entity.audioPath,
+                feedback = entity.feedbackJson?.let { raw ->
+                    runCatching {
+                        json.decodeFromString(AnswerFeedback.serializer(), raw)
+                    }.getOrNull()
+                },
+            )
+        }
 
     suspend fun gradedAnswers(sessionId: String): List<GradedAnswer> =
         examDao.answers(sessionId).mapNotNull { entity ->

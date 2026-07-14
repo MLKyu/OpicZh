@@ -34,3 +34,6 @@ serviceAccountKey*.json
 .DS_Store
 *.hprof
 *.log
+
+# 로컬 릴리스 빌드 산출물 (APK/메타데이터)
+app/release/

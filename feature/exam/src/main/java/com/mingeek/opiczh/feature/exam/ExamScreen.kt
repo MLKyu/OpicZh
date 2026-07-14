@@ -39,6 +39,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,9 +65,15 @@ import com.mingeek.opiczh.core.model.RubricAxis
 @Composable
 fun ExamScreen(
     onBack: () -> Unit,
+    resumeSessionId: String? = null,
     viewModel: ExamViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // 홈 '채점 대기함'에서 진입한 경우 — 저장된 답변으로 곧장 채점을 이어간다
+    LaunchedEffect(resumeSessionId) {
+        resumeSessionId?.let(viewModel::resumeGrading)
+    }
 
     // 시험 중 실수로 뒤로가기 → 종료 확인
     BackHandler(enabled = uiState.step == ExamStep.RUNNING || uiState.step == ExamStep.MID_CHECK) {
@@ -76,15 +83,24 @@ fun ExamScreen(
     when (uiState.step) {
         ExamStep.SETUP -> ExamSetupContent(uiState, viewModel, onBack)
         ExamStep.RUNNING, ExamStep.MID_CHECK -> ExamRunContent(uiState, viewModel, onBack)
-        ExamStep.GRADING -> ExamGradingContent(uiState)
-        ExamStep.REPORT -> ExamReportContent(uiState, onBack)
+        ExamStep.GRADING -> ExamGradingContent(uiState, viewModel)
+        ExamStep.REPORT -> ExamReportContent(uiState, viewModel, onBack)
     }
 
     if (uiState.showExitDialog) {
         AlertDialog(
             onDismissRequest = viewModel::dismissExit,
             title = { Text("시험을 종료할까요?") },
-            text = { Text("지금 종료하면 이번 모의고사는 채점되지 않습니다.") },
+            text = {
+                Text(
+                    if (uiState.answeredCount > 0) {
+                        "지금까지 답변한 ${uiState.answeredCount}개 문항은 버려지지 않아요.\n" +
+                            "홈의 '채점 대기함'에서 언제든 이어서 채점할 수 있습니다."
+                    } else {
+                        "지금 종료하면 이번 모의고사는 채점되지 않습니다."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { viewModel.confirmExit(onBack) }) { Text("종료") }
             },
@@ -343,31 +359,62 @@ private fun ExamRunContent(
 // --- 3단계: 채점 중 ---
 
 @Composable
-private fun ExamGradingContent(uiState: ExamUiState) {
+private fun ExamGradingContent(uiState: ExamUiState, viewModel: ExamViewModel) {
     KeepScreenOn()
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(56.dp))
-            Text(
-                text = "AI 채점 중… (${uiState.gradingDone}/${uiState.gradingTotal})",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            if (uiState.gradingFailed > 0) {
+            if (uiState.gradingError != null) {
+                ErrorBanner(message = uiState.gradingError)
+                Button(
+                    onClick = viewModel::retryFailedGrading,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("다시 채점") }
+                OutlinedButton(
+                    onClick = viewModel::requestExit,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("시험 종료") }
                 Text(
-                    text = "${uiState.gradingFailed}개 문항 채점 실패 (리포트에서 제외됩니다)",
+                    text = "답변 녹음은 모두 저장되어 있습니다. 한도가 풀린 뒤 다시 채점을 누르거나, " +
+                        "지금 나가도 홈의 '채점 대기함'에서 언제든 이어서 채점할 수 있어요.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(56.dp))
+                Text(
+                    text = "AI 채점 중… (${uiState.gradingDone}/${uiState.gradingTotal})",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                uiState.gradingNotice?.let { notice ->
+                    Text(
+                        text = notice,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                if (uiState.gradingFailed > 0) {
+                    Text(
+                        text = "${uiState.gradingFailed}개 문항 채점 실패 (자동으로 다시 시도합니다)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Text(
+                    text = "답변 하나하나를 전사하고 루브릭으로 평가하고 있습니다.\n" +
+                        "무료 한도에 맞춰 간격을 두고 진행해 몇 분 걸릴 수 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
             }
-            Text(
-                text = "답변 하나하나를 전사하고 루브릭으로 평가하고 있습니다.\n1~2분 정도 걸릴 수 있어요.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }
@@ -375,7 +422,11 @@ private fun ExamGradingContent(uiState: ExamUiState) {
 // --- 4단계: 결과 리포트 ---
 
 @Composable
-private fun ExamReportContent(uiState: ExamUiState, onBack: () -> Unit) {
+private fun ExamReportContent(
+    uiState: ExamUiState,
+    viewModel: ExamViewModel,
+    onBack: () -> Unit,
+) {
     val report = uiState.report ?: return
 
     ScreenScaffold(title = "채점 리포트", onBack = onBack) { modifier ->
@@ -419,6 +470,24 @@ private fun ExamReportContent(uiState: ExamUiState, onBack: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+
+            if (uiState.gradingFailed > 0) {
+                item {
+                    SectionCard(title = "채점되지 않은 문항") {
+                        Text(
+                            text = "${uiState.gradingFailed}개 문항이 무료 한도 초과로 채점되지 못했습니다. " +
+                                "지금 다시 시도하거나, 한도가 풀린 뒤(분당 한도는 1분, 일일 한도는 " +
+                                "한국 시간 오후 4~5시경) 눌러 주세요. 성공한 문항은 다시 채점하지 않습니다.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = viewModel::retryFailedGrading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("실패 문항 다시 채점 (${uiState.gradingFailed}개)") }
                     }
                 }
             }
@@ -507,6 +576,13 @@ private fun AnswerReportCard(answer: GradedAnswer) {
 
             if (expanded) {
                 AnswerFeedbackDetail(answer.feedback)
+                answer.feedback.gradedBy?.let { model ->
+                    Text(
+                        text = "채점 모델: $model",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             } else {
                 Text(
                     text = "탭하면 전사·교정·모범답안을 볼 수 있어요",

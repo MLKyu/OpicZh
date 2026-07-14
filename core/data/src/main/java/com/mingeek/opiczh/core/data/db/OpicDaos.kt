@@ -55,7 +55,39 @@ interface ExamDao {
 
     @Query("UPDATE exam_answers SET feedbackJson = :feedbackJson WHERE id = :answerId")
     suspend fun updateAnswerFeedback(answerId: String, feedbackJson: String)
+
+    /**
+     * 채점이 끝나지 않은 세션: 답변이 하나라도 있고,
+     * 진행 중이거나(크래시·이탈 포함) 리포트가 부분 채점으로 끝난 경우.
+     */
+    @Query(
+        """
+        SELECT s.id AS sessionId, s.startedAtEpochMs AS startedAtEpochMs,
+               s.targetGrade AS targetGrade,
+               COUNT(a.id) AS answerCount,
+               SUM(CASE WHEN a.feedbackJson IS NOT NULL THEN 1 ELSE 0 END) AS gradedCount
+        FROM exam_sessions s
+        JOIN exam_answers a ON a.sessionId = s.id
+        WHERE s.status != :abortedStatus
+        GROUP BY s.id
+        HAVING s.status = :inProgressStatus OR gradedCount < answerCount
+        ORDER BY s.startedAtEpochMs DESC
+        """,
+    )
+    fun pendingGradingFlow(
+        inProgressStatus: String,
+        abortedStatus: String,
+    ): Flow<List<PendingGradingRow>>
 }
+
+/** [ExamDao.pendingGradingFlow] 프로젝션 */
+data class PendingGradingRow(
+    val sessionId: String,
+    val startedAtEpochMs: Long,
+    val targetGrade: String,
+    val answerCount: Int,
+    val gradedCount: Int,
+)
 
 @Dao
 interface SrsDao {
