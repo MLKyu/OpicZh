@@ -44,10 +44,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mingeek.opiczh.core.ai.NanoStatus
 import com.mingeek.opiczh.core.ai.ondevice.ModelStatus
 import com.mingeek.opiczh.core.designsystem.component.KeepScreenOn
 import com.mingeek.opiczh.core.designsystem.component.ScreenScaffold
 import com.mingeek.opiczh.core.designsystem.component.SectionCard
+import com.mingeek.opiczh.core.model.OnDeviceEnginePriority
 import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
 import java.text.SimpleDateFormat
@@ -77,6 +79,7 @@ fun SettingsScreen(
             ModelSection(uiState, modelChain, viewModel)
             PresynthSection(uiState, presynth, viewModel)
             RoutingSection(uiState, viewModel)
+            NanoSection(uiState, viewModel)
             OnDeviceModelsSection(uiState, viewModel)
             CloudBackupSection(uiState, viewModel)
             SectionCard(title = "음성 점검") {
@@ -356,10 +359,113 @@ private fun RoutingSection(uiState: SettingsUiState, viewModel: SettingsViewMode
             }
         }
         Text(
-            text = "온디바이스 모델은 아래 '온디바이스 모델' 섹션에서 다운로드하세요. " +
-                "정밀 채점·전사는 클라우드가 담당하고, 오프라인에선 드릴·회화가 온디바이스로 동작합니다.",
+            text = "정밀 채점·전사는 클라우드가 담당하고, 한도 초과·오프라인에선 드릴·회화가 온디바이스로 동작합니다. " +
+                "온디바이스는 아래 '내장 AI'(다운로드 불필요)와 '온디바이스 모델'(직접 다운로드) 두 가지입니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 기기 내장 Gemini Nano(AICore) 상태 + 온디바이스 엔진 우선순위 */
+@Composable
+private fun NanoSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    SectionCard(title = "내장 AI (Gemini Nano)") {
+        Text(
+            text = "갤럭시 S26 울트라에 내장된 Gemini Nano입니다. 모델을 시스템(AICore)이 관리해 " +
+                "앱이 따로 다운로드하지 않으며, 클라우드 한도 초과 시 회화·드릴을 이어받습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        when (uiState.nano.status) {
+            null -> Text("상태 확인 중…", style = MaterialTheme.typography.bodySmall)
+
+            NanoStatus.AVAILABLE -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text("사용 가능", style = MaterialTheme.typography.bodyMedium)
+            }
+
+            NanoStatus.DOWNLOADABLE ->
+                if (uiState.nano.downloading) {
+                    NanoDownloadingRow(uiState.nano)
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "시스템 모델 준비 필요 (최초 1회, 앱 용량 미사용)",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Button(onClick = viewModel::downloadNano) { Text("준비") }
+                    }
+                }
+
+            NanoStatus.DOWNLOADING -> NanoDownloadingRow(uiState.nano)
+
+            NanoStatus.UNSUPPORTED -> Text(
+                text = "이 기기에서는 내장 Nano를 사용할 수 없습니다. 아래 온디바이스 모델을 다운로드해 주세요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        uiState.nano.message?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        HorizontalDivider()
+        Text("온디바이스 우선순위", style = MaterialTheme.typography.titleSmall)
+        OnDeviceEnginePriority.entries.forEach { priority ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                RadioButton(
+                    selected = uiState.settings.onDeviceEnginePriority == priority,
+                    onClick = { viewModel.setOnDeviceEnginePriority(priority) },
+                )
+                Text(priority.ko, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Text(
+            text = "'다운로드한 모델 우선'이면 받아둔 모델(중국어 기준 추천 모델)이 있을 때 그 모델을 쓰고, " +
+                "없으면 자동으로 내장 Nano를 사용합니다. 준비 안 된 쪽은 건너뛰므로 어느 쪽이든 손해가 없습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun NanoDownloadingRow(nano: NanoUi) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val total = nano.totalBytes
+        if (total != null && total > 0) {
+            LinearProgressIndicator(
+                progress = { (nano.downloadedBytes.toFloat() / total).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Text(
+            text = "시스템이 모델 준비 중… (${nano.downloadedBytes / 1_000_000}MB" +
+                (total?.let { "/${it / 1_000_000}MB" } ?: "") + " 수신)",
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

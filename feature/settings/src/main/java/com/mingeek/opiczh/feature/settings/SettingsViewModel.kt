@@ -3,6 +3,9 @@ package com.mingeek.opiczh.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.ApiUsage
+import com.mingeek.opiczh.core.ai.NanoDownloadState
+import com.mingeek.opiczh.core.ai.NanoLlmEngine
+import com.mingeek.opiczh.core.ai.NanoStatus
 import com.mingeek.opiczh.core.ai.UsageTracker
 import com.mingeek.opiczh.core.ai.gemini.GeminiModelCatalog
 import com.mingeek.opiczh.core.ai.gemini.ModelChainProvider
@@ -29,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.mingeek.opiczh.core.model.AppSettings
+import com.mingeek.opiczh.core.model.OnDeviceEnginePriority
 import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -60,6 +64,15 @@ data class ModelChainUi(
     val refreshing: Boolean = false,
 )
 
+/** 기기 내장 Gemini Nano(AICore) 상태 — status null이면 확인 중 */
+data class NanoUi(
+    val status: NanoStatus? = null,
+    val downloading: Boolean = false,
+    val downloadedBytes: Long = 0,
+    val totalBytes: Long? = null,
+    val message: String? = null,
+)
+
 /** 문항 음성 미리 준비(선합성) 진행 상태 */
 data class PresynthUi(
     val running: Boolean = false,
@@ -75,6 +88,8 @@ data class SettingsUiState(
     // 온디바이스 모델
     val onDeviceSpecs: List<OnDeviceModelSpec> = OnDeviceModels.ALL,
     val onDeviceStatuses: Map<String, ModelStatus> = emptyMap(),
+    // 기기 내장 Gemini Nano
+    val nano: NanoUi = NanoUi(),
     // 모델 추천/교체
     val recommendation: RecommendationRecord? = null,
     val activeModelFileName: String? = null,
@@ -126,6 +141,7 @@ class SettingsViewModel @Inject constructor(
     private val speaker: ChineseSpeaker,
     private val modelManager: OnDeviceModelManager,
     private val modelRecommender: ModelRecommender,
+    private val nanoEngine: NanoLlmEngine,
     private val backupArchiver: BackupArchiver,
     @param:ApplicationContext private val appContext: Context,
     usageTracker: UsageTracker,
@@ -138,6 +154,8 @@ class SettingsViewModel @Inject constructor(
     private val keyStatus = MutableStateFlow<KeyStatus>(KeyStatus.Idle)
     private val refreshingChain = MutableStateFlow(false)
     private val onDeviceStatuses = MutableStateFlow<Map<String, ModelStatus>>(emptyMap())
+    private val nanoState = MutableStateFlow(NanoUi())
+    private var nanoDownloadJob: Job? = null
     private val loadingRecommendation = MutableStateFlow(false)
     private val recommendationError = MutableStateFlow<String?>(null)
     private val backupDb = MutableStateFlow(true)
@@ -211,12 +229,14 @@ class SettingsViewModel @Inject constructor(
         keyPanel,
         onDevicePanel,
         backupPanel,
-    ) { settings, key, onDevice, backup ->
+        nanoState,
+    ) { settings, key, onDevice, backup, nano ->
         SettingsUiState(
             settings = settings,
             apiKeyInput = key.input,
             keyStatus = key.status,
             onDeviceStatuses = onDevice.statuses,
+            nano = nano,
             recommendation = onDevice.rec.recommendation,
             activeModelFileName = onDevice.rec.activeFileName,
             loadingRecommendation = onDevice.rec.loading,
@@ -244,6 +264,50 @@ class SettingsViewModel @Inject constructor(
         }
         // 앱이 켜진 채 다운로드가 끝난 교체 건 수습
         viewModelScope.launch { modelManager.reconcile() }
+        refreshNanoStatus()
+    }
+
+    // --- 기기 내장 Gemini Nano (AICore) ---
+
+    fun refreshNanoStatus() {
+        viewModelScope.launch {
+            nanoState.update { it.copy(status = nanoEngine.checkStatus()) }
+        }
+    }
+
+    /** Nano 시스템 모델 준비 — 다운로드·저장은 AICore(시스템) 몫이라 앱 용량을 쓰지 않는다 */
+    fun downloadNano() {
+        if (nanoState.value.downloading) return
+        nanoState.update { it.copy(downloading = true, message = null) }
+        nanoDownloadJob = viewModelScope.launch {
+            nanoEngine.download().collect { state ->
+                when (state) {
+                    is NanoDownloadState.Running -> nanoState.update {
+                        it.copy(
+                            downloadedBytes = state.bytesDownloaded,
+                            totalBytes = state.totalBytes ?: it.totalBytes,
+                        )
+                    }
+                    NanoDownloadState.Completed -> nanoState.update {
+                        it.copy(
+                            status = NanoStatus.AVAILABLE,
+                            downloading = false,
+                            message = "준비 완료 — 이제 다운로드 없이 내장 Nano를 사용할 수 있습니다.",
+                        )
+                    }
+                    is NanoDownloadState.Failed -> {
+                        nanoState.update {
+                            it.copy(downloading = false, message = "준비 실패: ${state.message}")
+                        }
+                        refreshNanoStatus()
+                    }
+                }
+            }
+        }
+    }
+
+    fun setOnDeviceEnginePriority(priority: OnDeviceEnginePriority) {
+        viewModelScope.launch { settingsRepository.setOnDeviceEnginePriority(priority) }
     }
 
     private fun watchSpec(spec: OnDeviceModelSpec) {

@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.hilt.android)
     "ksp"(libs.hilt.android.compiler)
     implementation(libs.litertlm.android)
+    implementation(libs.genai.prompt)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)

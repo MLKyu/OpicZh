@@ -9,6 +9,7 @@ import com.mingeek.opiczh.core.common.RemoteTuning
 import com.mingeek.opiczh.core.data.security.ApiKeyCipher
 import com.mingeek.opiczh.core.model.AppSettings
 import com.mingeek.opiczh.core.model.DefaultModels
+import com.mingeek.opiczh.core.model.OnDeviceEnginePriority
 import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +32,7 @@ class SettingsRepository @Inject constructor(
         val TTS_MODEL_ID = stringPreferencesKey("tts_model_id")
         val TTS_VOICE = stringPreferencesKey("tts_voice")
         val ROUTING_POLICY = stringPreferencesKey("routing_policy")
+        val ONDEVICE_ENGINE_PRIORITY = stringPreferencesKey("ondevice_engine_priority")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
     }
 
@@ -50,6 +52,9 @@ class SettingsRepository @Inject constructor(
             routingPolicy = prefs[Keys.ROUTING_POLICY]?.let { name ->
                 RoutingPolicy.entries.firstOrNull { it.name == name }
             } ?: RoutingPolicy.AUTO,
+            onDeviceEnginePriority = prefs[Keys.ONDEVICE_ENGINE_PRIORITY]?.let { name ->
+                OnDeviceEnginePriority.entries.firstOrNull { it.name == name }
+            } ?: OnDeviceEnginePriority.DOWNLOADED_FIRST,
         )
     }.distinctUntilChanged()
 
@@ -90,5 +95,9 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setRoutingPolicy(policy: RoutingPolicy) {
         dataStore.edit { it[Keys.ROUTING_POLICY] = policy.name }
+    }
+
+    suspend fun setOnDeviceEnginePriority(priority: OnDeviceEnginePriority) {
+        dataStore.edit { it[Keys.ONDEVICE_ENGINE_PRIORITY] = priority.name }
     }
 }

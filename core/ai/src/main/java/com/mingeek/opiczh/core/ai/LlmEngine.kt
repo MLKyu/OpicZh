@@ -3,7 +3,7 @@ package com.mingeek.opiczh.core.ai
 import com.mingeek.opiczh.core.common.AppResult
 import kotlinx.serialization.json.JsonObject
 
-enum class LlmEngineId { GEMINI, ON_DEVICE }
+enum class LlmEngineId { GEMINI, ON_DEVICE, NANO }
 
 /** 라우팅 판단에 쓰는 작업 종류. 정밀 채점은 클라우드, 드릴은 온디바이스 허용 등. */
 enum class AiTask {
