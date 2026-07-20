@@ -55,6 +55,7 @@ class ModelDownloadWorker(
             .build()
 
         try {
+            var expectedBytes: Long? = null
             client.newCall(request).execute().use { response ->
                 when {
                     response.code == 401 || response.code == 403 ->
@@ -75,6 +76,7 @@ class ModelDownloadWorker(
 
                 val alreadyHave = if (resuming) existingBytes else 0L
                 val totalBytes = alreadyHave + body.contentLength().coerceAtLeast(0L)
+                expectedBytes = body.contentLength().takeIf { it >= 0 }?.plus(alreadyHave)
 
                 body.byteStream().use { input ->
                     java.io.FileOutputStream(part, resuming).use { output ->
@@ -99,6 +101,16 @@ class ModelDownloadWorker(
                 }
             }
 
+            // 스트림이 예외 없이 조기 종료돼도(서버가 연결을 그냥 닫는 경우) 여기 도달한다 —
+            // 받다 만 파일을 정식 모델로 승격하면 엔진 로드가 계속 실패하므로 크기를 검증한다.
+            expectedBytes?.let { expected ->
+                val actual = part.length()
+                if (actual < expected) return@withContext Result.retry() // .part 유지 → 이어받기
+                if (actual > expected) {
+                    part.delete() // 손상 — 처음부터 다시
+                    return@withContext Result.retry()
+                }
+            }
             if (!part.renameTo(target)) {
                 part.copyTo(target, overwrite = true)
                 part.delete()

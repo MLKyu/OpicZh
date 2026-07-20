@@ -137,6 +137,16 @@ fun TemplateShadowScreen(
                     }
                 }
 
+                if (!uiState.coachAvailable) {
+                    Text(
+                        text = "온디바이스 모드: 발음·성조 분석은 클라우드 전용입니다. " +
+                            "원어민 음성을 들으며 따라 말하기 연습은 그대로 할 수 있고, " +
+                            "AI 피드백은 설정에서 '자동'으로 바꾼 뒤 받아 보세요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+
                 if (!permissions.allPermissionsGranted) {
                     Button(
                         onClick = { permissions.launchMultiplePermissionRequest() },

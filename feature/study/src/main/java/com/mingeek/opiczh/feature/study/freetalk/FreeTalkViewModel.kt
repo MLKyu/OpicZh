@@ -9,6 +9,7 @@ import com.mingeek.opiczh.core.ai.LlmRouter
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
+import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.speech.ChineseSpeaker
 import com.mingeek.opiczh.core.speech.record.AnswerRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,6 +33,8 @@ data class FreeTalkUiState(
     val transcribing: Boolean = false,
     val replying: Boolean = false,
     val speakReplies: Boolean = true,
+    /** 음성 입력(전사)은 클라우드 전용 — '온디바이스만' 모드에선 false */
+    val voiceInputAvailable: Boolean = true,
     val error: String? = null,
 )
 
@@ -62,6 +65,13 @@ class FreeTalkViewModel @Inject constructor(
                 ),
             )
         }
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                _uiState.update {
+                    it.copy(voiceInputAvailable = settings.routingPolicy != RoutingPolicy.ON_DEVICE_ONLY)
+                }
+            }
+        }
     }
 
     fun onInputChange(value: String) = _uiState.update { it.copy(input = value) }
@@ -76,6 +86,12 @@ class FreeTalkViewModel @Inject constructor(
     }
 
     fun toggleRecording() {
+        if (!_uiState.value.voiceInputAvailable && !_uiState.value.recording) {
+            _uiState.update {
+                it.copy(error = "'온디바이스만' 모드에서는 음성 입력(전사)을 쓸 수 없습니다. 텍스트로 입력해 주세요.")
+            }
+            return
+        }
         if (_uiState.value.recording) {
             val result = recorder.stop()
             _uiState.update { it.copy(recording = false) }
@@ -104,7 +120,8 @@ class FreeTalkViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val target = settingsRepository.settings.first().targetGrade
-            val history = _uiState.value.turns.joinToString("\n") { turn ->
+            // 온디바이스 폴백(내장 Nano)은 입력 ~4천 토큰 제한 — 최근 턴만 컨텍스트로 보낸다
+            val history = _uiState.value.turns.takeLast(MAX_HISTORY_TURNS).joinToString("\n") { turn ->
                 when (turn.role) {
                     TalkRole.COACH -> "교관: ${turn.text}"
                     TalkRole.USER -> "학습자: ${turn.text}"
@@ -160,5 +177,9 @@ class FreeTalkViewModel @Inject constructor(
         stopSpeaking()
         if (_uiState.value.recording) recorder.cancel()
         super.onCleared()
+    }
+
+    private companion object {
+        const val MAX_HISTORY_TURNS = 12
     }
 }

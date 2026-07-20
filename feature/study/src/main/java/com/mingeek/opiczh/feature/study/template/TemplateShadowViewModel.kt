@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.PronunciationCoach
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
+import com.mingeek.opiczh.core.data.settings.SettingsRepository
 import com.mingeek.opiczh.core.data.study.StudyRepository
+import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.StudyTemplate
 import com.mingeek.opiczh.core.speech.ChineseSpeaker
 import com.mingeek.opiczh.core.speech.record.AnswerRecorder
@@ -25,6 +27,8 @@ data class TemplateShadowUiState(
     val recording: Boolean = false,
     val coaching: Boolean = false,
     val coachFeedback: String? = null,
+    /** 발음 코치(음성 분석)는 클라우드 전용 — '온디바이스만' 모드에선 false */
+    val coachAvailable: Boolean = true,
     val addedToSrs: Boolean = false,
     val error: String? = null,
 )
@@ -33,6 +37,7 @@ data class TemplateShadowUiState(
 @HiltViewModel
 class TemplateShadowViewModel @Inject constructor(
     private val studyRepository: StudyRepository,
+    private val settingsRepository: SettingsRepository,
     private val speaker: ChineseSpeaker,
     private val recorder: AnswerRecorder,
     private val coach: PronunciationCoach,
@@ -46,6 +51,13 @@ class TemplateShadowViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             _uiState.update { it.copy(templates = studyRepository.templates()) }
+        }
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                _uiState.update {
+                    it.copy(coachAvailable = settings.routingPolicy != RoutingPolicy.ON_DEVICE_ONLY)
+                }
+            }
         }
     }
 

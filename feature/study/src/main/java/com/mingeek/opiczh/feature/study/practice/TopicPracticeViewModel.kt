@@ -10,6 +10,7 @@ import com.mingeek.opiczh.core.data.settings.SettingsRepository
 import com.mingeek.opiczh.core.data.study.StudyRepository
 import com.mingeek.opiczh.core.model.AnswerFeedback
 import com.mingeek.opiczh.core.model.Question
+import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
 import com.mingeek.opiczh.core.model.Topic
 import com.mingeek.opiczh.core.speech.ChineseSpeaker
@@ -23,7 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -40,10 +40,15 @@ data class TopicPracticeUiState(
     val grading: Boolean = false,
     val feedback: AnswerFeedback? = null,
     val showQuestionText: Boolean = false,
+    /** 텍스트 답변 모드 — 음성 채점이 불가한 온디바이스 모드에서도 연습이 되는 경로 */
+    val typing: Boolean = false,
+    val typedAnswer: String = "",
+    /** '온디바이스만' 정책 — 음성 채점 불가 안내·텍스트 모드 기본값에 사용 */
+    val onDeviceOnly: Boolean = false,
     val error: String? = null,
 )
 
-/** 주제별 실전 연습: 문항 듣기 → 답변 녹음 → 즉시 채점·교정 */
+/** 주제별 실전 연습: 문항 듣기 → 답변 녹음(또는 텍스트 작성) → 즉시 채점·교정 */
 @HiltViewModel
 class TopicPracticeViewModel @Inject constructor(
     private val studyRepository: StudyRepository,
@@ -61,12 +66,21 @@ class TopicPracticeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val settings = settingsRepository.settings.first()
-            _uiState.update {
-                it.copy(
-                    topics = studyRepository.allTopics(),
-                    targetGrade = settings.targetGrade,
-                )
+            _uiState.update { it.copy(topics = studyRepository.allTopics()) }
+        }
+        viewModelScope.launch {
+            // 설정 변경(목표 등급·라우팅 정책)을 화면에 바로 반영
+            settingsRepository.settings.collect { settings ->
+                val onDeviceOnly = settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY
+                _uiState.update {
+                    it.copy(
+                        targetGrade = settings.targetGrade,
+                        onDeviceOnly = onDeviceOnly,
+                        // 온디바이스 모드에선 음성 채점이 불가하므로 텍스트 모드를 기본으로.
+                        // 단 녹음 중에는 전환하지 않는다 — 정지 버튼이 사라지면 안 된다.
+                        typing = if (onDeviceOnly && !it.recording) true else it.typing,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -98,10 +112,35 @@ class TopicPracticeViewModel @Inject constructor(
                 currentQuestion = question,
                 feedback = null,
                 showQuestionText = false,
+                typedAnswer = "",
                 error = null,
             )
         }
         playQuestion()
+    }
+
+    fun setTyping(enabled: Boolean) {
+        if (_uiState.value.recording) return
+        _uiState.update { it.copy(typing = enabled, error = null) }
+    }
+
+    fun onTypedAnswerChange(value: String) = _uiState.update { it.copy(typedAnswer = value) }
+
+    /** 텍스트 답변 채점 — 오디오가 없어 온디바이스 LLM(로컬)으로도 동작한다 */
+    fun submitTypedAnswer() {
+        val question = _uiState.value.currentQuestion ?: return
+        val answer = _uiState.value.typedAnswer.trim()
+        if (answer.isEmpty() || _uiState.value.grading) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(grading = true, feedback = null, error = null) }
+            grader.gradeText(question, answer, _uiState.value.targetGrade)
+                .onSuccess { feedback ->
+                    _uiState.update { it.copy(feedback = feedback) }
+                    studyRepository.addCorrectionCards(feedback.corrections, "주제연습")
+                }
+                .onFailure { e -> _uiState.update { it.copy(error = e.userMessageKo()) } }
+            _uiState.update { it.copy(grading = false) }
+        }
     }
 
     fun backToTopics() {

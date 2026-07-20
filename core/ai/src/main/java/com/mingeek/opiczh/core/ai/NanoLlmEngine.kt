@@ -9,6 +9,7 @@ import com.google.mlkit.genai.prompt.generateContentRequest
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.AppTracer
+import com.mingeek.opiczh.core.common.CrashReporter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -37,6 +38,7 @@ sealed interface NanoDownloadState {
 @Singleton
 class NanoLlmEngine @Inject constructor(
     private val tracer: AppTracer,
+    private val crashReporter: CrashReporter,
 ) : LlmEngine {
 
     override val id: LlmEngineId = LlmEngineId.NANO
@@ -64,6 +66,8 @@ class NanoLlmEngine @Inject constructor(
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
+            // AICore 부재뿐 아니라 일시 오류(바인딩 실패 등)도 여기로 온다 — 원인을 남겨 진단 가능하게
+            crashReporter.log("nano: checkStatus 실패 — ${t.javaClass.simpleName}: ${t.message}")
             NanoStatus.UNSUPPORTED
         }
     }

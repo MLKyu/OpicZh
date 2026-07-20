@@ -21,9 +21,11 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -211,7 +213,45 @@ private fun PracticeContent(
             }
         }
 
-        if (!permissionGranted) {
+        if (uiState.onDeviceOnly) {
+            Text(
+                text = "온디바이스 모드: 음성 채점은 클라우드 전용이라 텍스트 답변으로 연습합니다. " +
+                    "말하기 연습 후 답한 내용을 적어 채점받아 보세요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = !uiState.typing,
+                onClick = { viewModel.setTyping(false) },
+                label = { Text("말하기 (녹음)") },
+            )
+            FilterChip(
+                selected = uiState.typing,
+                onClick = { viewModel.setTyping(true) },
+                label = { Text("텍스트로 쓰기") },
+            )
+        }
+
+        if (uiState.typing) {
+            OutlinedTextField(
+                value = uiState.typedAnswer,
+                onValueChange = viewModel::onTypedAnswerChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("중국어로 답변을 작성하세요") },
+                minLines = 4,
+                enabled = !uiState.grading,
+            )
+            Button(
+                onClick = viewModel::submitTypedAnswer,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = uiState.typedAnswer.isNotBlank() && !uiState.grading,
+            ) {
+                Text("채점 받기")
+            }
+        } else if (!permissionGranted) {
             Button(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth()) {
                 Text("마이크 권한 허용")
             }
