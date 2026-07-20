@@ -118,7 +118,15 @@ fun FreeTalkScreen(
                     value = uiState.input,
                     onValueChange = viewModel::onInputChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("중국어로 입력하거나 마이크로 말하세요") },
+                    placeholder = {
+                        Text(
+                            if (uiState.voiceInputAvailable) {
+                                "중국어로 입력하거나 마이크로 말하세요"
+                            } else {
+                                "중국어로 입력하세요 (음성 입력은 클라우드 전용)"
+                            },
+                        )
+                    },
                     maxLines = 3,
                 )
                 if (uiState.input.isBlank()) {
@@ -130,7 +138,9 @@ fun FreeTalkScreen(
                                 permissions.launchMultiplePermissionRequest()
                             }
                         },
-                        enabled = !uiState.transcribing && !uiState.replying,
+                        // 녹음 중에는 항상 활성 — 음성 입력이 막혀도 정지는 가능해야 한다
+                        enabled = !uiState.transcribing && !uiState.replying &&
+                            (uiState.voiceInputAvailable || uiState.recording),
                     ) {
                         Icon(
                             imageVector = if (uiState.recording) Icons.Default.Stop else Icons.Default.Mic,

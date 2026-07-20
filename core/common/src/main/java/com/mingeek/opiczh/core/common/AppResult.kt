@@ -29,7 +29,8 @@ sealed class AppError {
         is Server -> "Gemini 서버 오류가 발생했습니다. (코드 $code)"
         is BadRequest -> "요청이 거부되었습니다." + (detail?.let { " ($it)" } ?: "")
         is Parsing -> "AI 응답을 해석하지 못했습니다. 다시 시도해 주세요."
-        is OnDeviceUnavailable -> "온디바이스 AI가 준비되지 않았습니다. 설정에서 모델을 다운로드하거나 내장 Nano를 준비해 주세요."
+        is OnDeviceUnavailable ->
+            detail ?: "온디바이스 AI가 준비되지 않았습니다. 설정에서 모델을 다운로드하거나 내장 Nano를 준비해 주세요."
         is Audio -> "오디오 처리 중 문제가 발생했습니다." + (detail?.let { " ($it)" } ?: "")
         is Unknown -> "알 수 없는 오류가 발생했습니다." + (detail?.let { " ($it)" } ?: "")
     }

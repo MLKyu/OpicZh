@@ -359,11 +359,20 @@ private fun RoutingSection(uiState: SettingsUiState, viewModel: SettingsViewMode
             }
         }
         Text(
-            text = "정밀 채점·전사는 클라우드가 담당하고, 한도 초과·오프라인에선 드릴·회화가 온디바이스로 동작합니다. " +
+            text = "채점·전사·발음 코치는 음성 입력이 필요해 항상 클라우드(Gemini)가 담당합니다. " +
+                "한도 초과·오프라인에선 텍스트 작업(자유회화 등)만 온디바이스로 이어받습니다. " +
                 "온디바이스는 아래 '내장 AI'(다운로드 불필요)와 '온디바이스 모델'(직접 다운로드) 두 가지입니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (uiState.settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY) {
+            Text(
+                text = "⚠️ '온디바이스만'에서는 모의고사·주제연습 채점, 음성 전사, 쉐도잉 발음 코치가 동작하지 " +
+                    "않습니다 (온디바이스 AI는 음성 입력 미지원). 자유회화 텍스트 대화만 가능합니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 
@@ -373,7 +382,8 @@ private fun NanoSection(uiState: SettingsUiState, viewModel: SettingsViewModel) 
     SectionCard(title = "내장 AI (Gemini Nano)") {
         Text(
             text = "갤럭시 S26 울트라에 내장된 Gemini Nano입니다. 모델을 시스템(AICore)이 관리해 " +
-                "앱이 따로 다운로드하지 않으며, 클라우드 한도 초과 시 회화·드릴을 이어받습니다.",
+                "앱이 따로 다운로드하지 않으며, 클라우드 한도 초과 시 텍스트 회화·드릴을 이어받습니다. " +
+                "음성 입력은 지원하지 않아 채점·전사에는 사용되지 않습니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -473,6 +483,12 @@ private fun NanoDownloadingRow(nano: NanoUi) {
 @Composable
 private fun OnDeviceModelsSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     SectionCard(title = "온디바이스 모델 (오프라인 AI)") {
+        Text(
+            text = "다운로드해 두면 클라우드 한도 초과·오프라인에서도 텍스트 회화·드릴이 동작합니다. " +
+                "음성 입력은 지원하지 않아 채점·전사에는 사용되지 않습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         RecommendationBlock(uiState, viewModel)
 
         HorizontalDivider()

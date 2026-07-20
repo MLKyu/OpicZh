@@ -18,6 +18,7 @@ import com.mingeek.opiczh.core.model.ExamReport
 import com.mingeek.opiczh.core.model.ExamReportAggregator
 import com.mingeek.opiczh.core.model.GradedAnswer
 import com.mingeek.opiczh.core.model.Question
+import com.mingeek.opiczh.core.model.RoutingPolicy
 import com.mingeek.opiczh.core.model.TargetGrade
 import com.mingeek.opiczh.core.model.Topic
 import com.mingeek.opiczh.core.speech.ChineseSpeaker
@@ -46,6 +47,8 @@ data class ExamUiState(
     val selectedTopicIds: Set<String> = emptySet(),
     val selfAssessment: Int = 3,
     val targetGrade: TargetGrade = TargetGrade.DEFAULT,
+    /** '온디바이스만' 정책 — 응시는 가능하지만 채점은 클라우드 전환 후 대기함에서 */
+    val onDeviceOnly: Boolean = false,
     // 진행 단계
     val questions: List<Question> = emptyList(),
     val currentIndex: Int = 0,
@@ -121,6 +124,13 @@ class ExamViewModel @Inject constructor(
                 when (s) {
                     is RecorderState.Recording -> startRecordTicker(s.startedElapsedRealtimeMs)
                     RecorderState.Idle -> stopRecordTicker()
+                }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.settings.collect { settings ->
+                _uiState.update {
+                    it.copy(onDeviceOnly = settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY)
                 }
             }
         }

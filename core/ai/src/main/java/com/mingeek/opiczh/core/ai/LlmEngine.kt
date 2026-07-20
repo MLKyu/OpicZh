@@ -5,15 +5,15 @@ import kotlinx.serialization.json.JsonObject
 
 enum class LlmEngineId { GEMINI, ON_DEVICE, NANO }
 
-/** 라우팅 판단에 쓰는 작업 종류. 정밀 채점은 클라우드, 드릴은 온디바이스 허용 등. */
-enum class AiTask {
-    GRADING,
-    MODEL_ANSWER,
-    DRILL_FEEDBACK,
-    CHAT,
-    QUESTION_GENERATION,
-    TRANSLATION,
-    TRANSCRIPTION,
+/** 라우팅 판단·오류 안내에 쓰는 작업 종류. ko는 사용자 메시지에 그대로 넣는 이름. */
+enum class AiTask(val ko: String) {
+    GRADING("채점"),
+    MODEL_ANSWER("모범답안 생성"),
+    DRILL_FEEDBACK("발음 코치"),
+    CHAT("회화"),
+    QUESTION_GENERATION("문항 생성"),
+    TRANSLATION("번역"),
+    TRANSCRIPTION("음성 전사"),
 }
 
 sealed interface LlmPart {

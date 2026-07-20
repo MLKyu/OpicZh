@@ -137,6 +137,15 @@ private fun ExamSetupContent(
         ) {
             uiState.error?.let { ErrorBanner(message = it) }
 
+            if (uiState.onDeviceOnly) {
+                Text(
+                    text = "온디바이스 모드: 시험 응시(문항 듣기·녹음)는 가능하지만 채점은 클라우드(Gemini) 전용입니다. " +
+                        "답변은 모두 보존되며, 설정에서 '자동'으로 바꾼 뒤 홈의 '채점 대기함'에서 채점할 수 있습니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                )
+            }
+
             SectionCard(title = "Background Survey — 주제 선택 (2개 이상)") {
                 Text(
                     text = "실전처럼 잘 아는 주제만 고르세요. 선택한 주제에서 콤보 문항이 출제됩니다.",

@@ -48,7 +48,9 @@ class OnDeviceLlmEngine @Inject constructor(
             )
         }
         val modelFile = modelManager.readyModelFile()
-            ?: return AppResult.failure(AppError.OnDeviceUnavailable())
+            ?: return AppResult.failure(
+                AppError.OnDeviceUnavailable("다운로드된 온디바이스 모델이 없습니다. 설정에서 모델을 다운로드해 주세요."),
+            )
 
         return tracer.trace("ondevice_generate", "model" to modelFile.name) {
             generateWithModel(modelFile, request)

@@ -4,7 +4,6 @@ import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.AppTracer
 import com.mingeek.opiczh.core.common.RemoteTuning
-import com.mingeek.opiczh.core.common.errorOrNull
 import com.mingeek.opiczh.core.common.flatMap
 import com.mingeek.opiczh.core.common.map
 import com.mingeek.opiczh.core.model.AnswerFeedback
@@ -27,7 +26,10 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * 답변 오디오를 전사+채점까지 한 번의 Gemini 호출로 처리한다.
+ * 답변 채점.
+ * - [grade]: 답변 오디오를 전사+채점까지 한 번의 호출로 처리 (음성 입력 = 클라우드 전용)
+ * - [gradeText]: 타이핑한 답변을 텍스트로 채점 — 오디오가 없어 LlmRouter의 온디바이스
+ *   경로(ON_DEVICE_ONLY, AUTO의 한도 초과 폴백)로도 동작한다
  * responseSchema로 JSON 출력을 강제하고 [AnswerFeedback]으로 파싱한다.
  */
 @Singleton
@@ -75,7 +77,36 @@ class AnswerGrader @Inject constructor(
             maxOutputTokens = 8_192,
         )
 
-        // 파싱 실패는 LLM 비결정성일 수 있어 1회 재시도한다
+        return generateAndParse(request)
+    }
+
+    /**
+     * 타이핑한 답변 채점. 전사가 필요 없어 온디바이스 LLM으로도 채점된다 —
+     * '온디바이스만' 모드와 클라우드 한도 소진 시에도 연습을 이어가는 경로.
+     * 발음·유창성 축은 텍스트로 판단할 수 없어 채점에서 제외한다.
+     */
+    suspend fun gradeText(
+        question: Question,
+        answerText: String,
+        target: TargetGrade,
+    ): AppResult<AnswerFeedback> = tracer.trace(
+        "grade_answer_text",
+        "question_type" to question.type.name,
+    ) {
+        val request = LlmRequest(
+            parts = listOf(LlmPart.Text(buildTextPrompt(question, target, answerText))),
+            systemPrompt = remoteTuning.string(RemoteTuning.Keys.GRADING_SYSTEM_PROMPT)
+                ?: SYSTEM_PROMPT,
+            responseJsonSchema = FEEDBACK_SCHEMA,
+            temperature = 0.2f,
+            maxOutputTokens = 4_096,
+        )
+        // 답변 원문이 곧 전사다 — 모델이 다르게 옮겨 적어도 원문을 보존한다
+        generateAndParse(request).map { feedback -> feedback.copy(transcript = answerText) }
+    }
+
+    /** 라우터 호출 + JSON 파싱. 파싱 실패는 LLM 비결정성일 수 있어 1회 재시도한다 */
+    private suspend fun generateAndParse(request: LlmRequest): AppResult<AnswerFeedback> {
         var lastError: AppError? = null
         repeat(2) {
             val result = router.generate(AiTask.GRADING, request)
@@ -105,10 +136,25 @@ class AnswerGrader @Inject constructor(
         advice = "답변을 건너뛰었습니다. 어떤 질문이든 침묵보다는 만능 문장으로라도 답하는 연습을 하세요.",
     )
 
-    private fun parseFeedback(text: String): AppResult<AnswerFeedback> = try {
-        AppResult.success(json.decodeFromString(AnswerFeedback.serializer(), text.trim()))
-    } catch (t: Throwable) {
-        AppResult.failure(AppError.Parsing("채점 결과 해석 실패: ${t.message}"))
+    private fun parseFeedback(text: String): AppResult<AnswerFeedback> {
+        val direct = runCatching {
+            json.decodeFromString(AnswerFeedback.serializer(), text.trim())
+        }
+        direct.getOrNull()?.let { return AppResult.success(it) }
+
+        // 온디바이스 모델은 responseSchema 강제가 없어 ```json 펜스·설명 문장을 붙이기도 한다
+        // — 본문에서 JSON 오브젝트만 추려 한 번 더 시도한다.
+        val salvaged = extractJsonObject(text)?.let { candidate ->
+            runCatching { json.decodeFromString(AnswerFeedback.serializer(), candidate) }.getOrNull()
+        }
+        return salvaged?.let { AppResult.success(it) }
+            ?: AppResult.failure(AppError.Parsing("채점 결과 해석 실패: ${direct.exceptionOrNull()?.message}"))
+    }
+
+    private fun extractJsonObject(text: String): String? {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        return if (start in 0 until end) text.substring(start, end + 1) else null
     }
 
     private fun buildPrompt(question: Question, target: TargetGrade): String = """
@@ -139,6 +185,43 @@ class AnswerGrader @Inject constructor(
         - weaknessTags: 반복 학습이 필요한 약점을 짧은 한국어 태그로 (예: "성조-2성", "과거 경험 시제", "연결어 부족")
         - advice: 이 답변을 목표 등급으로 끌어올리기 위한 구체적 조언 2~3문장 (한국어)
         - 오디오가 무음이거나 중국어 답변이 없으면: transcript는 빈 문자열, estimatedGrade는 NL
+        - comment/reason/advice는 한국어로 작성
+    """.trimIndent()
+
+    private fun buildTextPrompt(
+        question: Question,
+        target: TargetGrade,
+        answerText: String,
+    ): String = """
+        [문항 정보]
+        - 유형: ${question.type.ko}
+        - 난이도: ${question.difficulty} (1~6)
+        - 질문(중국어): ${question.zh}
+        ${question.ko?.let { "- 질문(한국어): $it" } ?: ""}
+
+        [수험자 정보]
+        - 목표 등급: ${target.display}
+
+        [수험자 답변 — 텍스트로 작성됨]
+        $answerText
+
+        위 텍스트는 이 질문에 대한 수험자의 중국어 답변입니다. 루브릭에 따라 채점한 뒤
+        지정된 JSON 스키마로만 응답하세요.
+
+        [채점 지침]
+        - transcript: 위 답변 텍스트를 그대로 넣기
+        - estimatedGrade: 이 답변 하나만 놓고 본 ACTFL OPIc 추정 등급 (NL~AL, 한국식 IM1/IM2/IM3 세분 적용)
+        - gradeLow/gradeHigh: 보수적 추정 범위
+        - axes: 텍스트 답변이므로 FLUENCY·PRONUNCIATION은 제외하고 다음 4개 축만 1~10점.
+          TASK_COMPLETION(질문이 요구한 과제를 다 수행했는가),
+          SENTENCE_QUALITY(단문 나열인가, 연결어로 이어진 복문인가),
+          VOCABULARY(어휘 다양성·적절성), LENGTH(답변 분량)
+        - corrections: 실제 답변 문장에서 고칠 부분만. original은 답변에서 그대로 인용
+        - modelAnswer: 목표 등급 ${target.display} 수준에 딱 맞는 모범답안.
+          zh(간체), pinyin(성조 부호 포함), ko(한국어 번역) 모두 채울 것.
+        - weaknessTags: 반복 학습이 필요한 약점을 짧은 한국어 태그로
+        - advice: 목표 등급으로 끌어올리기 위한 구체적 조언 2~3문장 (한국어)
+        - 답변이 중국어가 아니거나 비어 있으면: estimatedGrade는 NL
         - comment/reason/advice는 한국어로 작성
     """.trimIndent()
 

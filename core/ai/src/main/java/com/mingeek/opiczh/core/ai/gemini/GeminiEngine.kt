@@ -51,6 +51,7 @@ class GeminiEngine @Inject constructor(
 
         val chain = chainProvider.chain()
         var lastRateLimit: AppError.RateLimited? = null
+        var lastServerError: AppError.Server? = null
         for (model in chain) {
             if (quotaGuard.remainingCooldownMs(model) > 0) continue
             // 429는 이 자리에서 기다리지 않는다(maxRateLimitWaitMs=0) — 쿨다운 기록 후 즉시
@@ -66,8 +67,13 @@ class GeminiEngine @Inject constructor(
                     quotaGuard.markLimited(model, error.retryAfterSec)
                     lastRateLimit = error // 다음 모델로 자동 전환
                 }
-                else -> return result // 한도 외 오류는 모델을 바꿔도 같다 (키/차단/네트워크)
+                is AppError.Server -> lastServerError = error // 과부하(503 등)는 모델별 문제 — 다음 모델 시도
+                else -> return result // 키/차단/네트워크 오류는 모델을 바꿔도 같다
             }
+        }
+        // 한도 초과가 하나도 없었다면(전부 서버 오류) 그 오류를 그대로 알린다
+        if (lastRateLimit == null && lastServerError != null) {
+            return AppResult.failure(lastServerError)
         }
         // 체인 전부 한도 초과: 가장 빨리 풀리는 시각을 알려준다
         return AppResult.failure(
