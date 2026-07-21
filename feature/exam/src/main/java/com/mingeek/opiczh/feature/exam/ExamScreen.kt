@@ -66,13 +66,15 @@ import com.mingeek.opiczh.core.model.RubricAxis
 fun ExamScreen(
     onBack: () -> Unit,
     resumeSessionId: String? = null,
+    onDeviceGrading: Boolean = false,
     viewModel: ExamViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // 홈 '채점 대기함'에서 진입한 경우 — 저장된 답변으로 곧장 채점을 이어간다
-    LaunchedEffect(resumeSessionId) {
-        resumeSessionId?.let(viewModel::resumeGrading)
+    // (onDeviceGrading이면 온디바이스 STT 임시 채점으로)
+    LaunchedEffect(resumeSessionId, onDeviceGrading) {
+        resumeSessionId?.let { viewModel.resumeGrading(it, onDevice = onDeviceGrading) }
     }
 
     // 시험 중 실수로 뒤로가기 → 종료 확인
@@ -139,8 +141,13 @@ private fun ExamSetupContent(
 
             if (uiState.onDeviceOnly) {
                 Text(
-                    text = "온디바이스 모드: 시험 응시(문항 듣기·녹음)는 가능하지만 채점은 클라우드(Gemini) 전용입니다. " +
-                        "답변은 모두 보존되며, 설정에서 '자동'으로 바꾼 뒤 홈의 '채점 대기함'에서 채점할 수 있습니다.",
+                    text = "온디바이스 모드: 시험 응시(문항 듣기·녹음)는 가능하지만 정식 채점은 클라우드(Gemini) 전용입니다. " +
+                        "답변은 모두 보존되며, 설정에서 '자동'으로 바꾼 뒤 홈의 '채점 대기함'에서 채점할 수 있습니다." +
+                        if (uiState.sttReady) {
+                            " 음성 인식 모델이 설치되어 있어 채점 화면에서 '온디바이스 임시 채점'(발음 제외)도 바로 쓸 수 있어요."
+                        } else {
+                            ""
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.tertiary,
                 )
@@ -384,6 +391,19 @@ private fun ExamGradingContent(uiState: ExamUiState, viewModel: ExamViewModel) {
                     onClick = viewModel::retryFailedGrading,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("다시 채점") }
+                if (uiState.sttReady) {
+                    OutlinedButton(
+                        onClick = viewModel::startOnDeviceGrading,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("온디바이스로 임시 채점") }
+                    Text(
+                        text = "기기에서 전사해 발음·유창성 없이 4축 임시 채점합니다 — " +
+                            "나중에 클라우드로 다시 채점하면 정식 결과로 덮어써요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 OutlinedButton(
                     onClick = viewModel::requestExit,
                     modifier = Modifier.fillMaxWidth(),
@@ -398,7 +418,11 @@ private fun ExamGradingContent(uiState: ExamUiState, viewModel: ExamViewModel) {
             } else {
                 CircularProgressIndicator(modifier = Modifier.size(56.dp))
                 Text(
-                    text = "AI 채점 중… (${uiState.gradingDone}/${uiState.gradingTotal})",
+                    text = if (uiState.gradingOnDevice) {
+                        "기기에서 전사·채점 중… (${uiState.gradingDone}/${uiState.gradingTotal}) — 네트워크 불필요"
+                    } else {
+                        "AI 채점 중… (${uiState.gradingDone}/${uiState.gradingTotal})"
+                    },
                     style = MaterialTheme.typography.titleMedium,
                 )
                 uiState.gradingNotice?.let { notice ->
@@ -411,14 +435,20 @@ private fun ExamGradingContent(uiState: ExamUiState, viewModel: ExamViewModel) {
                 }
                 if (uiState.gradingFailed > 0) {
                     Text(
-                        text = "${uiState.gradingFailed}개 문항 채점 실패 (자동으로 다시 시도합니다)",
+                        text = "${uiState.gradingFailed}개 문항 채점 실패" +
+                            if (uiState.gradingOnDevice) "" else " (자동으로 다시 시도합니다)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
                 Text(
-                    text = "답변 하나하나를 전사하고 루브릭으로 평가하고 있습니다.\n" +
-                        "무료 한도에 맞춰 간격을 두고 진행해 몇 분 걸릴 수 있어요.",
+                    text = if (uiState.gradingOnDevice) {
+                        "기기 안에서 답변을 글로 옮기고 텍스트 기준(발음·유창성 제외)으로 평가하고 있습니다.\n" +
+                            "임시 결과는 나중에 클라우드 채점으로 덮어쓸 수 있어요."
+                    } else {
+                        "답변 하나하나를 전사하고 루브릭으로 평가하고 있습니다.\n" +
+                            "무료 한도에 맞춰 간격을 두고 진행해 몇 분 걸릴 수 있어요."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -445,6 +475,17 @@ private fun ExamReportContent(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (uiState.provisionalReport) {
+                item {
+                    Text(
+                        text = "임시 리포트 — 온디바이스 전사 기반이라 발음·유창성이 빠져 있습니다. " +
+                            "이 결과는 홈 등급 추이에 반영되지 않으며, 세션은 채점 대기함에 남아 " +
+                            "'이어서 채점'하면 정식 결과로 바뀝니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
+            }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -497,6 +538,12 @@ private fun ExamReportContent(
                             onClick = viewModel::retryFailedGrading,
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("실패 문항 다시 채점 (${uiState.gradingFailed}개)") }
+                        if (uiState.sttReady) {
+                            OutlinedButton(
+                                onClick = viewModel::startOnDeviceGrading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("온디바이스로 임시 채점 (발음 제외)") }
+                        }
                     }
                 }
             }
@@ -504,7 +551,7 @@ private fun ExamReportContent(
             item {
                 SectionCard(title = "축별 평가") {
                     RubricAxis.entries.forEach { axis ->
-                        val score = report.axisAverages[axis] ?: 0.0
+                        val score = report.axisAverages[axis]
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -512,14 +559,27 @@ private fun ExamReportContent(
                             ) {
                                 Text(axis.ko, style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    "%.1f / 10".format(score),
+                                    text = score?.let { "%.1f / 10".format(it) } ?: "측정 안 됨",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = if (score == null) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
                                 )
                             }
-                            LinearProgressIndicator(
-                                progress = { (score / 10.0).toFloat().coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            if (score != null) {
+                                LinearProgressIndicator(
+                                    progress = { (score / 10.0).toFloat().coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            } else {
+                                Text(
+                                    text = "임시 채점(전사 기반)은 발음·유창성을 평가하지 않습니다",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -569,7 +629,8 @@ private fun AnswerReportCard(answer: GradedAnswer) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Q${answer.orderIndex + 1} · ${answer.question.type.ko}",
+                    text = "Q${answer.orderIndex + 1} · ${answer.question.type.ko}" +
+                        if (answer.feedback.provisional) " · 임시" else "",
                     style = MaterialTheme.typography.titleSmall,
                 )
                 GradeBadge(answer.feedback.estimatedGrade)
@@ -587,7 +648,8 @@ private fun AnswerReportCard(answer: GradedAnswer) {
                 AnswerFeedbackDetail(answer.feedback)
                 answer.feedback.gradedBy?.let { model ->
                     Text(
-                        text = "채점 모델: $model",
+                        text = "채점 모델: $model" +
+                            (answer.feedback.transcribedBy?.let { " · 전사: $it" } ?: ""),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

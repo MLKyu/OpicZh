@@ -1,5 +1,7 @@
 package com.mingeek.opiczh.core.ai
 
+import com.mingeek.opiczh.core.ai.stt.OnDeviceTranscriber
+import com.mingeek.opiczh.core.ai.stt.SttBypassPolicy
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.AppTracer
@@ -27,7 +29,9 @@ import kotlinx.serialization.json.putJsonObject
 
 /**
  * 답변 채점.
- * - [grade]: 답변 오디오를 전사+채점까지 한 번의 호출로 처리 (음성 입력 = 클라우드 전용)
+ * - [grade]: 답변 오디오를 전사+채점까지 한 번의 호출로 처리 (음성 입력 = 클라우드 전용).
+ *   sttBypass=true면 클라우드 불가 시 온디바이스 STT 전사 → 텍스트 채점으로 우회한다
+ *   (기본 false — 모의고사는 자동 우회 없이 채점 대기함에 보존).
  * - [gradeText]: 타이핑한 답변을 텍스트로 채점 — 오디오가 없어 LlmRouter의 온디바이스
  *   경로(ON_DEVICE_ONLY, AUTO의 한도 초과 폴백)로도 동작한다
  * responseSchema로 JSON 출력을 강제하고 [AnswerFeedback]으로 파싱한다.
@@ -35,6 +39,7 @@ import kotlinx.serialization.json.putJsonObject
 @Singleton
 class AnswerGrader @Inject constructor(
     private val router: LlmRouter,
+    private val onDeviceTranscriber: OnDeviceTranscriber,
     private val tracer: AppTracer,
     private val remoteTuning: RemoteTuning,
 ) {
@@ -48,12 +53,44 @@ class AnswerGrader @Inject constructor(
         question: Question,
         audioFile: File,
         target: TargetGrade,
+        sttBypass: Boolean = false,
     ): AppResult<AnswerFeedback> = tracer.trace(
         "grade_answer",
         "question_type" to question.type.name,
     ) {
-        gradeInternal(question, audioFile, target)
+        val cloud = gradeInternal(question, audioFile, target)
+        if (cloud is AppResult.Success || !sttBypass) return@trace cloud
+
+        val error = (cloud as AppResult.Failure).error
+        if (!SttBypassPolicy.shouldBypass(error, onDeviceTranscriber.isReady())) return@trace cloud
+
+        // 우회까지 실패하면 우회 경로의 오류를 반환한다 — gradeText가 RateLimited로
+        // 실패했다면 그 retryAfterSec 힌트가 살아 있고, STT 실패(무음 등)는 더 행동 가능하다.
+        gradeViaOnDeviceStt(question, audioFile, target)
     }
+
+    /**
+     * 온디바이스 STT 전사 → 텍스트 4축 채점(채점 LLM은 라우터가 결정) → 임시 표식.
+     * 모의고사 대기함의 "온디바이스 임시 채점"과 [grade]의 자동 우회가 함께 쓴다.
+     */
+    suspend fun gradeViaOnDeviceStt(
+        question: Question,
+        audioFile: File,
+        target: TargetGrade,
+    ): AppResult<AnswerFeedback> =
+        onDeviceTranscriber.transcribe(audioFile).flatMap { transcript ->
+            gradeTranscribedProvisional(question, transcript, target)
+        }
+
+    /** 이미 전사된 텍스트의 임시 채점 — 시험 임시 채점 패스가 전사/채점을 2단계로 나눌 때 사용 */
+    suspend fun gradeTranscribedProvisional(
+        question: Question,
+        transcript: String,
+        target: TargetGrade,
+    ): AppResult<AnswerFeedback> =
+        gradeText(question, transcript, target, fromSpeech = true).map { feedback ->
+            feedback.copy(provisional = true, transcribedBy = OnDeviceTranscriber.ENGINE_ID)
+        }
 
     private suspend fun gradeInternal(
         question: Question,
@@ -89,12 +126,13 @@ class AnswerGrader @Inject constructor(
         question: Question,
         answerText: String,
         target: TargetGrade,
+        fromSpeech: Boolean = false,
     ): AppResult<AnswerFeedback> = tracer.trace(
         "grade_answer_text",
         "question_type" to question.type.name,
     ) {
         val request = LlmRequest(
-            parts = listOf(LlmPart.Text(buildTextPrompt(question, target, answerText))),
+            parts = listOf(LlmPart.Text(buildTextPrompt(question, target, answerText, fromSpeech))),
             systemPrompt = remoteTuning.string(RemoteTuning.Keys.GRADING_SYSTEM_PROMPT)
                 ?: SYSTEM_PROMPT,
             responseJsonSchema = FEEDBACK_SCHEMA,
@@ -192,6 +230,7 @@ class AnswerGrader @Inject constructor(
         question: Question,
         target: TargetGrade,
         answerText: String,
+        fromSpeech: Boolean = false,
     ): String = """
         [문항 정보]
         - 유형: ${question.type.ko}
@@ -202,11 +241,18 @@ class AnswerGrader @Inject constructor(
         [수험자 정보]
         - 목표 등급: ${target.display}
 
-        [수험자 답변 — 텍스트로 작성됨]
+        ${if (fromSpeech) "[수험자 답변 — 음성 인식(STT) 전사본]" else "[수험자 답변 — 텍스트로 작성됨]"}
         $answerText
 
         위 텍스트는 이 질문에 대한 수험자의 중국어 답변입니다. 루브릭에 따라 채점한 뒤
         지정된 JSON 스키마로만 응답하세요.
+        ${if (fromSpeech) {
+        "주의: 이 답변은 음성 인식으로 전사된 텍스트라 동음(谐音) 오인식이 섞여 있을 수 있습니다. " +
+            "문맥상 명백한 오인식으로 보이는 표기는 수험자의 오류로 취급하지 말고(교정 대상 제외) " +
+            "문맥으로 이해해 채점하세요."
+    } else {
+        ""
+    }}
 
         [채점 지침]
         - transcript: 위 답변 텍스트를 그대로 넣기

@@ -59,13 +59,26 @@ interface ExamDao {
     /**
      * 채점이 끝나지 않은 세션: 답변이 하나라도 있고,
      * 진행 중이거나(크래시·이탈 포함) 리포트가 부분 채점으로 끝난 경우.
+     *
+     * 온디바이스 임시 채점(`"provisional":true` — AnswerFeedback가 encodeDefaults=false로
+     * 직렬화되므로 임시일 때만 이 리터럴이 존재, AnswerFeedbackCompatTest가 계약 고정)은
+     * 정식 채점이 아니므로 gradedCount에서 제외한다 — 임시만 채점된 세션은 대기함에 남아
+     * '이어서 채점'(클라우드)이 덮어쓸 수 있다.
      */
     @Query(
         """
         SELECT s.id AS sessionId, s.startedAtEpochMs AS startedAtEpochMs,
                s.targetGrade AS targetGrade,
                COUNT(a.id) AS answerCount,
-               SUM(CASE WHEN a.feedbackJson IS NOT NULL THEN 1 ELSE 0 END) AS gradedCount
+               SUM(
+                   CASE WHEN a.feedbackJson IS NOT NULL
+                             AND a.feedbackJson NOT LIKE '%"provisional":true%'
+                        THEN 1 ELSE 0 END
+               ) AS gradedCount,
+               SUM(
+                   CASE WHEN a.feedbackJson LIKE '%"provisional":true%'
+                        THEN 1 ELSE 0 END
+               ) AS provisionalCount
         FROM exam_sessions s
         JOIN exam_answers a ON a.sessionId = s.id
         WHERE s.status != :abortedStatus
@@ -87,6 +100,7 @@ data class PendingGradingRow(
     val targetGrade: String,
     val answerCount: Int,
     val gradedCount: Int,
+    val provisionalCount: Int,
 )
 
 @Dao

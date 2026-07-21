@@ -48,6 +48,7 @@ import java.util.Locale
 fun HomeScreen(
     onStartExam: () -> Unit,
     onResumeGrading: (sessionId: String) -> Unit,
+    onProvisionalGrading: (sessionId: String) -> Unit,
     onStudy: () -> Unit,
     onSettings: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
@@ -90,7 +91,9 @@ fun HomeScreen(
             if (uiState.pendingGrading.isNotEmpty()) {
                 PendingGradingSection(
                     pending = uiState.pendingGrading,
+                    sttReady = uiState.sttReady,
                     onResume = onResumeGrading,
+                    onProvisional = onProvisionalGrading,
                     onDiscard = viewModel::discardPendingSession,
                 )
             }
@@ -129,38 +132,49 @@ fun HomeScreen(
 @Composable
 private fun PendingGradingSection(
     pending: List<PendingGrading>,
+    sttReady: Boolean,
     onResume: (String) -> Unit,
+    onProvisional: (String) -> Unit,
     onDiscard: (String) -> Unit,
 ) {
     val dateFormat = SimpleDateFormat("M월 d일 HH:mm", Locale.KOREA)
     SectionCard(title = "채점 대기함") {
         Text(
-            text = "답변 녹음이 보관된 시험입니다. 무료 한도가 풀린 뒤 이어서 채점하세요.",
+            text = "답변 녹음이 보관된 시험입니다. 무료 한도가 풀린 뒤 이어서 채점하세요." +
+                if (sttReady) " 기다리기 싫다면 온디바이스 임시 채점(발음·유창성 제외)도 가능합니다." else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         pending.take(3).forEach { session ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(
-                        text = dateFormat.format(Date(session.startedAtEpochMs)),
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        text = "답변 ${session.answerCount}개 보관 중 · ${session.gradedCount}개 채점됨",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = dateFormat.format(Date(session.startedAtEpochMs)),
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            text = "답변 ${session.answerCount}개 보관 중 · ${session.gradedCount}개 채점됨" +
+                                if (session.provisionalCount > 0) " · 임시 ${session.provisionalCount}개" else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { onDiscard(session.sessionId) }) { Text("버리기") }
+                    Button(onClick = { onResume(session.sessionId) }) { Text("이어서 채점") }
                 }
-                TextButton(onClick = { onDiscard(session.sessionId) }) { Text("버리기") }
-                Button(onClick = { onResume(session.sessionId) }) { Text("이어서 채점") }
+                if (sttReady && session.gradedCount + session.provisionalCount < session.answerCount) {
+                    TextButton(onClick = { onProvisional(session.sessionId) }) {
+                        Text("지금 임시 채점 (기기에서, 발음 제외)")
+                    }
+                }
             }
         }
         if (pending.size > 3) {

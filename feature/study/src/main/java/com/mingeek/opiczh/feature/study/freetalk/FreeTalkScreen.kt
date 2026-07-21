@@ -123,7 +123,7 @@ fun FreeTalkScreen(
                             if (uiState.voiceInputAvailable) {
                                 "중국어로 입력하거나 마이크로 말하세요"
                             } else {
-                                "중국어로 입력하세요 (음성 입력은 클라우드 전용)"
+                                "중국어로 입력하세요 (음성 입력: 설정에서 음성 인식 모델 다운로드)"
                             },
                         )
                     },

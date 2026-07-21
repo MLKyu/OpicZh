@@ -2,6 +2,7 @@ package com.mingeek.opiczh.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mingeek.opiczh.core.ai.stt.SttModelManager
 import com.mingeek.opiczh.core.data.exam.ExamRepository
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
 import com.mingeek.opiczh.core.data.study.StudyRepository
@@ -24,6 +25,8 @@ data class HomeUiState(
     val srsDueCount: Int = 0,
     /** 채점이 끝나지 않은 보관 세션 — 답변 녹음은 전부 저장돼 있다 */
     val pendingGrading: List<PendingGrading> = emptyList(),
+    /** 음성 인식(STT) 모델 설치 여부 — 대기함 '임시 채점(기기)' 버튼 노출 조건 */
+    val sttReady: Boolean = false,
 )
 
 @HiltViewModel
@@ -31,6 +34,7 @@ class HomeViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val examRepository: ExamRepository,
     studyRepository: StudyRepository,
+    sttManager: SttModelManager,
 ) : ViewModel() {
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -38,7 +42,8 @@ class HomeViewModel @Inject constructor(
         examRepository.sessionSummaries(),
         studyRepository.dueCountFlow(System.currentTimeMillis()),
         examRepository.pendingGradingFlow(),
-    ) { settings, sessions, dueCount, pending ->
+        sttManager.installedFlow,
+    ) { settings, sessions, dueCount, pending, sttReady ->
         HomeUiState(
             settings = settings,
             recentSessions = sessions
@@ -46,6 +51,7 @@ class HomeViewModel @Inject constructor(
                 .take(10),
             srsDueCount = dueCount,
             pendingGrading = pending,
+            sttReady = sttReady,
         )
     }.stateIn(
         scope = viewModelScope,

@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.AnswerTranscriber
+import com.mingeek.opiczh.core.ai.TranscriptionSource
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.speech.ChineseSpeaker
@@ -108,7 +109,10 @@ class SpeechLabViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(transcribing = true, transcript = null, error = null) }
             transcriber.transcribe(file)
-                .onSuccess { text -> _uiState.update { it.copy(transcript = text) } }
+                .onSuccess { result ->
+                    val label = if (result.source == TranscriptionSource.ON_DEVICE) " (온디바이스 전사)" else ""
+                    _uiState.update { it.copy(transcript = result.text + label) }
+                }
                 .onFailure { e -> _uiState.update { it.copy(error = e.userMessageKo()) } }
             _uiState.update { it.copy(transcribing = false) }
         }

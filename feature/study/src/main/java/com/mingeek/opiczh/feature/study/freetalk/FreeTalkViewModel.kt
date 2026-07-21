@@ -6,6 +6,7 @@ import com.mingeek.opiczh.core.ai.AiTask
 import com.mingeek.opiczh.core.ai.AnswerTranscriber
 import com.mingeek.opiczh.core.ai.LlmRequest
 import com.mingeek.opiczh.core.ai.LlmRouter
+import com.mingeek.opiczh.core.ai.stt.SttModelManager
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
@@ -18,6 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,7 +35,7 @@ data class FreeTalkUiState(
     val transcribing: Boolean = false,
     val replying: Boolean = false,
     val speakReplies: Boolean = true,
-    /** 음성 입력(전사)은 클라우드 전용 — '온디바이스만' 모드에선 false */
+    /** 음성 입력 가능 여부 — '온디바이스만' 모드에서도 STT 모델이 설치돼 있으면 true */
     val voiceInputAvailable: Boolean = true,
     val error: String? = null,
 )
@@ -46,6 +48,7 @@ class FreeTalkViewModel @Inject constructor(
     private val recorder: AnswerRecorder,
     private val speaker: ChineseSpeaker,
     private val settingsRepository: SettingsRepository,
+    private val sttManager: SttModelManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FreeTalkUiState())
@@ -66,10 +69,11 @@ class FreeTalkViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            settingsRepository.settings.collect { settings ->
-                _uiState.update {
-                    it.copy(voiceInputAvailable = settings.routingPolicy != RoutingPolicy.ON_DEVICE_ONLY)
-                }
+            combine(settingsRepository.settings, sttManager.installedFlow) { settings, sttInstalled ->
+                // 온디바이스 STT가 있으면 '온디바이스만' 모드에서도 음성 입력이 된다
+                settings.routingPolicy != RoutingPolicy.ON_DEVICE_ONLY || sttInstalled
+            }.collect { available ->
+                _uiState.update { it.copy(voiceInputAvailable = available) }
             }
         }
     }
@@ -88,7 +92,10 @@ class FreeTalkViewModel @Inject constructor(
     fun toggleRecording() {
         if (!_uiState.value.voiceInputAvailable && !_uiState.value.recording) {
             _uiState.update {
-                it.copy(error = "'온디바이스만' 모드에서는 음성 입력(전사)을 쓸 수 없습니다. 텍스트로 입력해 주세요.")
+                it.copy(
+                    error = "'온디바이스만' 모드에서 음성 입력을 쓰려면 설정 > 음성 인식 모델을 다운로드하세요. " +
+                        "지금은 텍스트로 입력해 주세요.",
+                )
             }
             return
         }
@@ -100,7 +107,7 @@ class FreeTalkViewModel @Inject constructor(
                     viewModelScope.launch {
                         _uiState.update { it.copy(transcribing = true) }
                         transcriber.transcribe(file)
-                            .onSuccess { text -> if (text.isNotBlank()) send(text) }
+                            .onSuccess { result -> if (result.text.isNotBlank()) send(result.text) }
                             .onFailure { e -> _uiState.update { it.copy(error = e.userMessageKo()) } }
                         _uiState.update { it.copy(transcribing = false) }
                     }
