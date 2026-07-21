@@ -19,6 +19,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // sherpa-onnx (온디바이스 STT) — JitPack이 공식 릴리스 AAR을 그대로 서빙한다
+        maven(url = "https://jitpack.io") {
+            content { includeGroup("com.github.k2-fsa") }
+        }
     }
 }
 

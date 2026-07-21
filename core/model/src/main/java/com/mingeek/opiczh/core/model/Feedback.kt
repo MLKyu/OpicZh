@@ -57,4 +57,13 @@ data class AnswerFeedback(
      * 자동 모델 전환으로 하위 모델이 채점했는지 리포트에서 확인하는 용도.
      */
     val gradedBy: String? = null,
+    /**
+     * 온디바이스 STT 전사를 거친 임시 채점 (발음·유창성 축 미평가).
+     * 스키마 밖 앱 스탬프. 기본값 false라 기존 저장 JSON과 하위호환이고,
+     * encodeDefaults=false 직렬화에서 true일 때만 JSON에 나타난다 —
+     * 채점 대기함 쿼리(ExamDao)가 이 리터럴로 임시 채점을 미채점으로 계수한다.
+     */
+    val provisional: Boolean = false,
+    /** 전사를 수행한 온디바이스 엔진 ID (예: "sense-voice-int8"). null=클라우드 직채점·타이핑 */
+    val transcribedBy: String? = null,
 )

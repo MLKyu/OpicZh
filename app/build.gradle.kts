@@ -23,6 +23,13 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 갤럭시(S26 울트라) 전용 개인 앱 — arm64 네이티브 라이브러리만 패키징한다.
+        // sherpa-onnx·LiteRT가 전 ABI .so를 싣고 와 APK가 수십 MB 커지는 것 방지.
+        // (x86/x86_64 에뮬레이터에서는 동작하지 않음)
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {

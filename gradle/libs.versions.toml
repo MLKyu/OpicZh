@@ -26,6 +26,7 @@ work = "2.11.2"
 accompanistPermissions = "0.37.3"
 litertlm = "0.13.1"
 genaiPrompt = "1.0.0-beta2"
+sherpaOnnx = "v1.13.4"
 firebaseBom = "34.15.0"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.7"
@@ -78,6 +79,7 @@ androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", ve
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 genai-prompt = { group = "com.google.mlkit", name = "genai-prompt", version.ref = "genaiPrompt" }
+sherpa-onnx = { group = "com.github.k2-fsa", name = "sherpa-onnx", version.ref = "sherpaOnnx" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }

@@ -4,6 +4,8 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.AnswerGrader
+import com.mingeek.opiczh.core.ai.stt.OnDeviceTranscriber
+import com.mingeek.opiczh.core.ai.stt.SttModelManager
 import com.mingeek.opiczh.core.common.AppError
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.CrashReporter
@@ -69,9 +71,15 @@ data class ExamUiState(
     val gradingNotice: String? = null,
     /** 채점이 하나도 성공하지 못했을 때의 오류 (다시 채점 버튼 노출) */
     val gradingError: String? = null,
+    /** 온디바이스 STT 모델 설치 여부 — '온디바이스로 임시 채점' 버튼 노출 조건 */
+    val sttReady: Boolean = false,
+    /** 지금 돌고 있는 채점이 온디바이스 임시 패스인지 (진행 문구용) */
+    val gradingOnDevice: Boolean = false,
     // 리포트 단계
     val report: ExamReport? = null,
     val gradedAnswers: List<GradedAnswer> = emptyList(),
+    /** 리포트에 임시(전사 기반) 채점이 섞여 있음 — 세션은 완료 처리되지 않고 대기함에 남는다 */
+    val provisionalReport: Boolean = false,
     val error: String? = null,
 ) {
     val currentQuestion: Question? get() = questions.getOrNull(currentIndex)
@@ -89,6 +97,8 @@ class ExamViewModel @Inject constructor(
     private val speaker: ChineseSpeaker,
     private val recorder: AnswerRecorder,
     private val grader: AnswerGrader,
+    private val sttManager: SttModelManager,
+    private val onDeviceTranscriber: OnDeviceTranscriber,
     private val crashReporter: CrashReporter,
 ) : ViewModel() {
 
@@ -132,6 +142,11 @@ class ExamViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(onDeviceOnly = settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY)
                 }
+            }
+        }
+        viewModelScope.launch {
+            sttManager.installedFlow.collect { installed ->
+                _uiState.update { it.copy(sttReady = installed) }
             }
         }
     }
@@ -337,6 +352,13 @@ class ExamViewModel @Inject constructor(
 
     // --- 채점 단계 ---
 
+    /**
+     * 채점 패스 종류.
+     * - [CLOUD]: 정식 채점 (오디오 → Gemini 6축). 임시(provisional) 결과는 덮어쓴다.
+     * - [ON_DEVICE_STT]: 수동 임시 채점 — 온디바이스 전사 → 텍스트 4축, 세션 완료 처리 없음.
+     */
+    private enum class GradePass { CLOUD, ON_DEVICE_STT }
+
     /** 채점 완료된 문항 (재채점 시 성공분은 다시 호출하지 않는다) */
     private val gradedByIndex = linkedMapOf<Int, GradedAnswer>()
 
@@ -345,20 +367,29 @@ class ExamViewModel @Inject constructor(
 
     private var gradingJob: Job? = null
 
-    private fun startGrading() {
+    private fun startGrading(pass: GradePass = GradePass.CLOUD) {
         // 마지막 답변 저장과 시험 타이머 만료가 동시에 도착해도 채점은 한 번만 시작한다
         if (gradingJob?.isActive == true) return
         examTimerJob?.cancel()
         speaker.stop()
-        crashReporter.log("exam:grading answers=${pendingAnswers.size} resumed=${gradedByIndex.size}")
-        gradingJob = viewModelScope.launch { runGrading() }
+        crashReporter.log(
+            "exam:grading pass=${pass.name} answers=${pendingAnswers.size} resumed=${gradedByIndex.size}",
+        )
+        gradingJob = viewModelScope.launch { runGrading(pass) }
+    }
+
+    /** 채점 오류 화면·리포트의 '온디바이스로 임시 채점' 버튼 */
+    fun startOnDeviceGrading() {
+        if (!_uiState.value.sttReady) return
+        startGrading(GradePass.ON_DEVICE_STT)
     }
 
     /**
      * 홈 '채점 대기함' 재진입: 저장된 답변·문항·기존 채점을 DB에서 복원해
      * 미채점 문항만 이어서 채점한다. 앱이 죽었든 한도로 실패했든 답변은 유실되지 않는다.
+     * [onDevice]면 온디바이스 임시 채점 패스로 시작한다 (대기함의 '임시 채점(기기)' 버튼).
      */
-    fun resumeGrading(resumeSessionId: String) {
+    fun resumeGrading(resumeSessionId: String, onDevice: Boolean = false) {
         if (sessionId != null || _uiState.value.step != ExamStep.SETUP) return
         sessionId = resumeSessionId // 동기 선점 — LaunchedEffect 재실행 등 중복 진입 방지
         viewModelScope.launch {
@@ -376,8 +407,9 @@ class ExamViewModel @Inject constructor(
                 pendingAnswers.add(Triple(answer.answerId, answer.question, answer.audioPath))
                 answer.feedback?.let { feedback ->
                     gradedByIndex[index] = GradedAnswer(index, answer.question, feedback)
-                    // 이전 실행에서 교정 카드가 이미 등록됐을 수 있다 — 중복 등록 방지
-                    correctionsSubmitted.add(index)
+                    // 이전 실행에서 교정 카드가 이미 등록됐을 수 있다 — 중복 등록 방지.
+                    // 임시 채점분은 교정을 등록한 적이 없으므로 제외 — 정식 덮어쓰기 때 등록된다.
+                    if (!feedback.provisional) correctionsSubmitted.add(index)
                 }
             }
             _uiState.update {
@@ -388,18 +420,20 @@ class ExamViewModel @Inject constructor(
                 )
             }
             crashReporter.setKey("exam_active", "true")
-            crashReporter.log("exam:resume answers=${stored.size} graded=${gradedByIndex.size}")
-            startGrading()
+            crashReporter.log(
+                "exam:resume answers=${stored.size} graded=${gradedByIndex.size} onDevice=$onDevice",
+            )
+            startGrading(if (onDevice) GradePass.ON_DEVICE_STT else GradePass.CLOUD)
         }
     }
 
-    /** 실패 문항만 다시 채점 (채점 실패 화면·리포트의 '다시 채점' 버튼) */
+    /** 실패 문항만 다시 채점 (채점 실패 화면·리포트의 '다시 채점' 버튼) — 항상 정식(클라우드) */
     fun retryFailedGrading() {
         if (gradingJob?.isActive == true) return
-        gradingJob = viewModelScope.launch { runGrading() }
+        gradingJob = viewModelScope.launch { runGrading(GradePass.CLOUD) }
     }
 
-    private suspend fun runGrading() {
+    private suspend fun runGrading(pass: GradePass) {
         val session = sessionId ?: return
         val target = _uiState.value.targetGrade
         _uiState.update {
@@ -411,18 +445,23 @@ class ExamViewModel @Inject constructor(
                 gradingFailed = 0,
                 gradingNotice = null,
                 gradingError = null,
+                gradingOnDevice = pass == GradePass.ON_DEVICE_STT,
                 error = null,
             )
         }
 
-        var lastError = gradingPass(target)
+        var lastError = when (pass) {
+            GradePass.CLOUD -> gradingPass(target)
+            GradePass.ON_DEVICE_STT -> gradingPassOnDevice(target)
+        }
 
         // 분당 한도(RPM)에 걸린 실패는 창이 다시 열린 뒤 자동으로 한 번 더 시도한다.
         // 일일 한도(긴 대기)는 기다려도 소용없으므로 리포트로 넘기고 수동 재채점에 맡긴다.
+        // (온디바이스 패스는 로컬 전사라 한도 대기가 무의미 — 클라우드 패스에만 적용)
         val missing = pendingAnswers.size - gradedByIndex.size
         val rateLimit = lastError as? AppError.RateLimited
         val hintedWaitSec = rateLimit?.retryAfterSec
-        if (missing > 0 && rateLimit != null &&
+        if (pass == GradePass.CLOUD && missing > 0 && rateLimit != null &&
             (hintedWaitSec == null || hintedWaitSec <= AUTO_RETRY_MAX_WAIT_SEC)
         ) {
             val waitSec = (hintedWaitSec ?: DEFAULT_AUTO_RETRY_WAIT_SEC) + 1
@@ -444,6 +483,7 @@ class ExamViewModel @Inject constructor(
                 it.copy(
                     gradingError = lastError?.userMessageKo()
                         ?: "채점에 실패했습니다. 네트워크와 API 키를 확인한 뒤 다시 시도하세요.",
+                    gradingOnDevice = false,
                 )
             }
             return
@@ -451,14 +491,22 @@ class ExamViewModel @Inject constructor(
 
         val graded = gradedByIndex.values.sortedBy { it.orderIndex }
         val report = ExamReportAggregator.aggregate(graded, target)
-        examRepository.completeSession(session, report)
-        crashReporter.setKey("exam_active", "false")
+        // 임시(전사 기반) 채점이 하나라도 섞이면 세션을 완료 처리하지 않는다 —
+        // 홈 등급 추이(GRADED 세션만 집계)를 오염시키지 않고, 대기함에 남아
+        // '이어서 채점'(클라우드)이 임시분을 정식으로 덮어쓸 수 있다.
+        val hasProvisional = graded.any { it.feedback.provisional }
+        if (!hasProvisional) {
+            examRepository.completeSession(session, report)
+            crashReporter.setKey("exam_active", "false")
+        }
         crashReporter.log(
-            "exam:report grade=${report.overallGrade.name} failed=${pendingAnswers.size - graded.size}",
+            "exam:report grade=${report.overallGrade.name} " +
+                "failed=${pendingAnswers.size - graded.size} provisional=$hasProvisional",
         )
-        // 교정받은 문장은 복습 카드로 자동 등록 (재채점 시 새로 성공한 문항만)
+        // 교정받은 문장은 복습 카드로 자동 등록 (재채점 시 새로 성공한 문항만).
+        // 임시 채점의 교정은 오전사가 섞일 수 있어 SRS에 넣지 않는다 — 정식 채점 때 등록된다.
         val newCorrections = graded
-            .filter { it.orderIndex !in correctionsSubmitted }
+            .filter { it.orderIndex !in correctionsSubmitted && !it.feedback.provisional }
             .onEach { correctionsSubmitted.add(it.orderIndex) }
             .flatMap { it.feedback.corrections }
         if (newCorrections.isNotEmpty()) {
@@ -473,16 +521,22 @@ class ExamViewModel @Inject constructor(
                 gradedAnswers = graded,
                 gradingFailed = pendingAnswers.size - graded.size,
                 gradingError = null,
+                gradingOnDevice = false,
+                provisionalReport = hasProvisional,
             )
         }
     }
 
-    /** 아직 채점되지 않은 문항만 순회. 마지막 실패 원인을 반환한다. */
+    /**
+     * 정식(클라우드) 채점 패스 — 미채점 문항과 임시(provisional) 문항만 순회한다.
+     * 임시 채점분은 정식 6축 결과로 덮어쓴다. 마지막 실패 원인을 반환한다.
+     */
     private suspend fun gradingPass(target: TargetGrade): AppError? {
         var lastError: AppError? = null
         var failed = 0
         pendingAnswers.forEachIndexed { index, (answerId, question, audioPath) ->
-            if (gradedByIndex.containsKey(index)) return@forEachIndexed
+            val existing = gradedByIndex[index]
+            if (existing != null && !existing.feedback.provisional) return@forEachIndexed
             val feedback = if (audioPath == null) {
                 AppResult.success(grader.skippedFeedback())
             } else {
@@ -494,6 +548,71 @@ class ExamViewModel @Inject constructor(
                     AppError.Unknown("채점 응답 지연 (문항당 ${GRADE_TIMEOUT_MS / 60_000}분 초과)"),
                 )
             }
+            when (feedback) {
+                is AppResult.Success -> {
+                    examRepository.saveAnswerFeedback(answerId, feedback.value)
+                    gradedByIndex[index] = GradedAnswer(index, question, feedback.value)
+                }
+                is AppResult.Failure -> {
+                    lastError = feedback.error
+                    failed++
+                }
+            }
+            _uiState.update {
+                it.copy(gradingDone = gradedByIndex.size + failed, gradingFailed = failed)
+            }
+        }
+        return lastError
+    }
+
+    /**
+     * 온디바이스 임시 채점 패스 — 2단계로 나눠 STT(약 240MB)와 온디바이스 LLM(GB급)이
+     * 동시에 메모리에 올라가지 않게 한다: ①미채점 문항 전량을 기기에서 전사 →
+     * ②STT 해제 후 문항별 텍스트 4축 채점(채점 LLM은 라우터가 결정).
+     * 성공분은 문항 단위로 즉시 저장되므로 중간에 죽어도 유실되지 않는다.
+     */
+    private suspend fun gradingPassOnDevice(target: TargetGrade): AppError? {
+        var lastError: AppError? = null
+        var failed = 0
+
+        // 1단계: 전사 (건너뛴 답변은 AI 없이 즉시 무응답 피드백 저장)
+        val transcripts = linkedMapOf<Int, String>()
+        val total = pendingAnswers.withIndex()
+            .count { (i, answer) -> i !in gradedByIndex && answer.third != null }
+        var transcribed = 0
+        pendingAnswers.forEachIndexed { index, (answerId, question, audioPath) ->
+            if (gradedByIndex.containsKey(index)) return@forEachIndexed
+            if (audioPath == null) {
+                val skipped = grader.skippedFeedback()
+                examRepository.saveAnswerFeedback(answerId, skipped)
+                gradedByIndex[index] = GradedAnswer(index, question, skipped)
+                _uiState.update { it.copy(gradingDone = gradedByIndex.size + failed) }
+                return@forEachIndexed
+            }
+            _uiState.update {
+                it.copy(gradingNotice = "기기에서 전사 중… (${transcribed + 1}/$total)")
+            }
+            when (val result = onDeviceTranscriber.transcribe(File(audioPath))) {
+                is AppResult.Success -> transcripts[index] = result.value
+                is AppResult.Failure -> {
+                    lastError = result.error
+                    failed++
+                    _uiState.update { it.copy(gradingFailed = failed) }
+                }
+            }
+            transcribed++
+        }
+        onDeviceTranscriber.unload()
+        _uiState.update { it.copy(gradingNotice = null) }
+
+        // 2단계: 텍스트 채점 (429여도 LlmRouter가 온디바이스 LLM으로 폴백을 시도한 결과다)
+        transcripts.forEach { (index, transcript) ->
+            val (answerId, question, _) = pendingAnswers[index]
+            val feedback = withTimeoutOrNull(GRADE_TIMEOUT_MS) {
+                grader.gradeTranscribedProvisional(question, transcript, target)
+            } ?: AppResult.failure(
+                AppError.Unknown("채점 응답 지연 (문항당 ${GRADE_TIMEOUT_MS / 60_000}분 초과)"),
+            )
             when (feedback) {
                 is AppResult.Success -> {
                     examRepository.saveAnswerFeedback(answerId, feedback.value)

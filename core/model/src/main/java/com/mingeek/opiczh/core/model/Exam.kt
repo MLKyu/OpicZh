@@ -37,7 +37,10 @@ data class PendingGrading(
     val startedAtEpochMs: Long,
     val targetGrade: TargetGrade,
     val answerCount: Int,
+    /** 정식(클라우드 6축) 채점 완료 수 — 임시 채점은 포함하지 않는다 */
     val gradedCount: Int,
+    /** 온디바이스 임시 채점 수 — '이어서 채점'하면 정식으로 덮어써진다 */
+    val provisionalCount: Int = 0,
 )
 
 /** 저장된 답변 한 건 (채점 재개용). 채점 전이면 [feedback]이 null */
@@ -75,11 +78,14 @@ object ExamReportAggregator {
         val low = gradeFromRank(ranks.first().toDouble())
         val high = gradeFromRank(ranks.last().toDouble())
 
-        val axisAverages = RubricAxis.entries.associateWith { axis ->
+        // 점수가 하나도 없는 축은 맵에서 제외한다 — 4축 임시 채점(발음·유창성 미평가)이
+        // 섞였을 때 0.0이 평균을 오염시키지 않게. 혼합 세트에서는 해당 축을 평가받은
+        // 답변들만의 평균이 된다.
+        val axisAverages = RubricAxis.entries.mapNotNull { axis ->
             val scores = answers.flatMap { a -> a.feedback.axes.filter { it.axis == axis } }
                 .map { it.score }
-            if (scores.isEmpty()) 0.0 else scores.average()
-        }
+            scores.takeIf { it.isNotEmpty() }?.let { axis to it.average() }
+        }.toMap()
 
         val topWeaknesses = answers.flatMap { it.feedback.weaknessTags }
             .groupingBy { it }

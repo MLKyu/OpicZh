@@ -38,13 +38,18 @@ class LlmRouter @Inject constructor(
 
         if (needsAudio) {
             if (settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY) {
-                return AppResult.failure(
-                    AppError.OnDeviceUnavailable(
-                        "'온디바이스만' 모드에서는 ${task.ko} 기능을 쓸 수 없습니다. " +
-                            "음성 입력은 클라우드(Gemini) 전용입니다 — " +
-                            "설정에서 AI 엔진 사용 방식을 '자동'으로 바꿔 주세요.",
-                    ),
-                )
+                // 채점·전사는 호출자(AnswerGrader/AnswerTranscriber)가 STT 설치 시 이
+                // 실패를 온디바이스 전사로 우회한다 — 여기 메시지는 STT 미설치일 때 보인다.
+                val detail = if (task == AiTask.DRILL_FEEDBACK) {
+                    "'온디바이스만' 모드에서는 ${task.ko} 기능을 쓸 수 없습니다. " +
+                        "발음·성조 분석은 실제 소리를 들어야 해서 클라우드(Gemini) 전용입니다 — " +
+                        "설정에서 AI 엔진 사용 방식을 '자동'으로 바꿔 주세요."
+                } else {
+                    "'온디바이스만' 모드에서 ${task.ko} 기능을 쓰려면 설정 > 음성 인식 모델을 " +
+                        "다운로드하세요 — 기기 안에서 전사해 처리합니다(발음·유창성 평가 제외). " +
+                        "또는 AI 엔진 사용 방식을 '자동'으로 바꿔 주세요."
+                }
+                return AppResult.failure(AppError.OnDeviceUnavailable(detail))
             }
             return if (gemini.isReady()) {
                 gemini.generate(request)

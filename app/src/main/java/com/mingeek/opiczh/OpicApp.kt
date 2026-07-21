@@ -25,6 +25,8 @@ data object HomeKey : NavKey
 data class ExamKey(
     /** null이면 새 시험, 값이 있으면 홈 '채점 대기함'에서 이어서 채점 */
     val resumeSessionId: String? = null,
+    /** 대기함 '임시 채점' 진입 — 클라우드 대신 온디바이스 STT 임시 채점으로 시작 */
+    val onDeviceGrading: Boolean = false,
 ) : NavKey
 
 @Serializable
@@ -65,6 +67,9 @@ fun OpicApp() {
                     onResumeGrading = { sessionId ->
                         backStack.add(ExamKey(resumeSessionId = sessionId))
                     },
+                    onProvisionalGrading = { sessionId ->
+                        backStack.add(ExamKey(resumeSessionId = sessionId, onDeviceGrading = true))
+                    },
                     onStudy = { backStack.add(StudyKey) },
                     onSettings = { backStack.add(SettingsKey) },
                 )
@@ -73,6 +78,7 @@ fun OpicApp() {
                 ExamScreen(
                     onBack = { backStack.removeLastOrNull() },
                     resumeSessionId = key.resumeSessionId,
+                    onDeviceGrading = key.onDeviceGrading,
                 )
             }
             entry<StudyKey> {

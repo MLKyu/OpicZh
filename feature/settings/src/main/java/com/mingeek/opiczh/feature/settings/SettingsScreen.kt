@@ -46,6 +46,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mingeek.opiczh.core.ai.NanoStatus
 import com.mingeek.opiczh.core.ai.ondevice.ModelStatus
+import com.mingeek.opiczh.core.ai.stt.SttModels
 import com.mingeek.opiczh.core.designsystem.component.KeepScreenOn
 import com.mingeek.opiczh.core.designsystem.component.ScreenScaffold
 import com.mingeek.opiczh.core.designsystem.component.SectionCard
@@ -81,6 +82,7 @@ fun SettingsScreen(
             RoutingSection(uiState, viewModel)
             NanoSection(uiState, viewModel)
             OnDeviceModelsSection(uiState, viewModel)
+            SttModelSection(uiState, viewModel)
             CloudBackupSection(uiState, viewModel)
             SectionCard(title = "음성 점검") {
                 Text(
@@ -485,7 +487,7 @@ private fun OnDeviceModelsSection(uiState: SettingsUiState, viewModel: SettingsV
     SectionCard(title = "온디바이스 모델 (오프라인 AI)") {
         Text(
             text = "다운로드해 두면 클라우드 한도 초과·오프라인에서도 텍스트 회화·드릴이 동작합니다. " +
-                "음성 입력은 지원하지 않아 채점·전사에는 사용되지 않습니다.",
+                "음성 입력은 아래 '음성 인식 모델'이 담당합니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -570,6 +572,80 @@ private fun OnDeviceModelsSection(uiState: SettingsUiState, viewModel: SettingsV
 
         Text(
             text = "모든 추천·기본 모델은 무료라 토큰이나 로그인 없이 바로 다운로드됩니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 온디바이스 음성 인식(STT) 파일 세트 — 설치되면 음성 흐름이 클라우드 한도와 무관하게 이어진다 */
+@Composable
+private fun SttModelSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    SectionCard(title = "음성 인식 모델 (온디바이스 전사)") {
+        Text(
+            text = "다운로드해 두면(약 ${SttModels.TOTAL_APPROX_MB}MB, 파일 3개) 클라우드 한도 초과·오프라인에서도 " +
+                "녹음 답변을 기기 안에서 글로 옮깁니다 — 주제연습 음성 채점(임시), 자유회화 음성 입력, " +
+                "모의고사 임시 채점에 쓰입니다. 발음·성조 분석(쉐도잉 코치)은 대체하지 않습니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        when (val status = uiState.sttStatus) {
+            is ModelStatus.Installed -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "설치됨 (${status.sizeBytes / 1_000_000}MB) — 음성 우회 사용 가능",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { viewModel.deleteStt() }) { Text("삭제") }
+            }
+
+            is ModelStatus.Downloading -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LinearProgressIndicator(
+                    progress = { status.progressPct / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "다운로드 중 ${status.progressPct}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { viewModel.cancelSttDownload() }) { Text("취소") }
+                }
+            }
+
+            ModelStatus.Queued -> Text(
+                "대기 중… (네트워크/저장공간 조건 확인)",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            is ModelStatus.Failed -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = status.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Button(onClick = { viewModel.downloadStt() }) { Text("다시 시도") }
+            }
+
+            ModelStatus.NotInstalled -> Button(onClick = { viewModel.downloadStt() }) {
+                Text("다운로드 (약 ${SttModels.TOTAL_APPROX_MB}MB)")
+            }
+        }
+        Text(
+            text = "SenseVoice(중국어 특화) + 발화 구간 감지 모델. 무료·토큰 없이 바로 받아지며, " +
+                "중단해도 이어받기로 계속됩니다.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

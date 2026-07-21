@@ -141,6 +141,7 @@ class ExamRepository @Inject constructor(
                         ?: TargetGrade.DEFAULT,
                     answerCount = row.answerCount,
                     gradedCount = row.gradedCount,
+                    provisionalCount = row.provisionalCount,
                 )
             }
         }

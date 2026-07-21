@@ -27,8 +27,16 @@ fun FeedbackBlock(title: String, content: @Composable () -> Unit) {
 @Composable
 fun AnswerFeedbackDetail(feedback: AnswerFeedback) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (feedback.provisional) {
+            Text(
+                text = "임시 채점 — 온디바이스 전사 기반 (발음·유창성 미평가). " +
+                    "클라우드로 다시 채점하면 정식 결과로 바뀝니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
         if (feedback.transcript.isNotBlank()) {
-            FeedbackBlock("내 답변 (전사)") {
+            FeedbackBlock(if (feedback.provisional) "내 답변 (온디바이스 전사)" else "내 답변 (전사)") {
                 Text(feedback.transcript, style = MaterialTheme.typography.bodyMedium)
             }
         }

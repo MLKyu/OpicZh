@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mingeek.opiczh.core.ai.AnswerGrader
+import com.mingeek.opiczh.core.ai.stt.SttModelManager
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
 import com.mingeek.opiczh.core.data.settings.SettingsRepository
@@ -24,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -43,8 +45,10 @@ data class TopicPracticeUiState(
     /** 텍스트 답변 모드 — 음성 채점이 불가한 온디바이스 모드에서도 연습이 되는 경로 */
     val typing: Boolean = false,
     val typedAnswer: String = "",
-    /** '온디바이스만' 정책 — 음성 채점 불가 안내·텍스트 모드 기본값에 사용 */
+    /** '온디바이스만' 정책 — 안내 문구·텍스트 모드 기본값에 사용 */
     val onDeviceOnly: Boolean = false,
+    /** 음성 인식(STT) 모델 설치 여부 — 설치돼 있으면 온디바이스 모드에서도 말하기 채점 가능 */
+    val sttReady: Boolean = false,
     val error: String? = null,
 )
 
@@ -56,6 +60,7 @@ class TopicPracticeViewModel @Inject constructor(
     private val speaker: ChineseSpeaker,
     private val recorder: AnswerRecorder,
     private val grader: AnswerGrader,
+    private val sttManager: SttModelManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TopicPracticeUiState())
@@ -69,16 +74,19 @@ class TopicPracticeViewModel @Inject constructor(
             _uiState.update { it.copy(topics = studyRepository.allTopics()) }
         }
         viewModelScope.launch {
-            // 설정 변경(목표 등급·라우팅 정책)을 화면에 바로 반영
-            settingsRepository.settings.collect { settings ->
+            // 설정 변경(목표 등급·라우팅 정책)과 STT 설치 여부를 화면에 바로 반영
+            combine(settingsRepository.settings, sttManager.installedFlow) { settings, stt ->
+                settings to stt
+            }.collect { (settings, sttReady) ->
                 val onDeviceOnly = settings.routingPolicy == RoutingPolicy.ON_DEVICE_ONLY
                 _uiState.update {
                     it.copy(
                         targetGrade = settings.targetGrade,
                         onDeviceOnly = onDeviceOnly,
-                        // 온디바이스 모드에선 음성 채점이 불가하므로 텍스트 모드를 기본으로.
+                        sttReady = sttReady,
+                        // 온디바이스 모드에서 STT까지 없으면 음성 채점이 불가 — 텍스트 모드 기본.
                         // 단 녹음 중에는 전환하지 않는다 — 정지 버튼이 사라지면 안 된다.
-                        typing = if (onDeviceOnly && !it.recording) true else it.typing,
+                        typing = if (onDeviceOnly && !sttReady && !it.recording) true else it.typing,
                     )
                 }
             }
@@ -191,11 +199,15 @@ class TopicPracticeViewModel @Inject constructor(
         val question = _uiState.value.currentQuestion ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(grading = true, error = null) }
-            grader.grade(question, file, _uiState.value.targetGrade)
+            // 클라우드 불가(한도·키·오프라인·온디바이스만) 시 온디바이스 STT+텍스트 채점으로 자동 우회
+            grader.grade(question, file, _uiState.value.targetGrade, sttBypass = true)
                 .onSuccess { feedback ->
                     _uiState.update { it.copy(feedback = feedback) }
-                    // 교정 문장은 자동으로 복습 카드에 등록
-                    studyRepository.addCorrectionCards(feedback.corrections, "주제연습")
+                    // 교정 문장은 자동으로 복습 카드에 등록 — 단 임시 채점(전사 기반)의
+                    // 교정은 오전사가 섞일 수 있어 SRS에 넣지 않는다
+                    if (!feedback.provisional) {
+                        studyRepository.addCorrectionCards(feedback.corrections, "주제연습")
+                    }
                 }
                 .onFailure { e -> _uiState.update { it.copy(error = e.userMessageKo()) } }
             _uiState.update { it.copy(grading = false) }

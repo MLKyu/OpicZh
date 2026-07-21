@@ -17,6 +17,8 @@ import com.mingeek.opiczh.core.ai.ondevice.OnDeviceModels
 import android.content.Context
 import android.net.Uri
 import com.mingeek.opiczh.core.ai.ondevice.RecommendationRecord
+import com.mingeek.opiczh.core.ai.stt.OnDeviceTranscriber
+import com.mingeek.opiczh.core.ai.stt.SttModelManager
 import com.mingeek.opiczh.core.common.AppResult
 import com.mingeek.opiczh.core.common.onFailure
 import com.mingeek.opiczh.core.common.onSuccess
@@ -88,6 +90,8 @@ data class SettingsUiState(
     // 온디바이스 모델
     val onDeviceSpecs: List<OnDeviceModelSpec> = OnDeviceModels.ALL,
     val onDeviceStatuses: Map<String, ModelStatus> = emptyMap(),
+    // 온디바이스 음성 인식(STT) 파일 세트 상태
+    val sttStatus: ModelStatus = ModelStatus.NotInstalled,
     // 기기 내장 Gemini Nano
     val nano: NanoUi = NanoUi(),
     // 모델 추천/교체
@@ -120,6 +124,7 @@ private data class RecPanel(
 private data class OnDevicePanel(
     val statuses: Map<String, ModelStatus>,
     val rec: RecPanel,
+    val stt: ModelStatus,
 )
 
 private data class BackupPanel(
@@ -140,6 +145,8 @@ class SettingsViewModel @Inject constructor(
     private val examRepository: ExamRepository,
     private val speaker: ChineseSpeaker,
     private val modelManager: OnDeviceModelManager,
+    private val sttManager: SttModelManager,
+    private val onDeviceTranscriber: OnDeviceTranscriber,
     private val modelRecommender: ModelRecommender,
     private val nanoEngine: NanoLlmEngine,
     private val backupArchiver: BackupArchiver,
@@ -208,8 +215,9 @@ class SettingsViewModel @Inject constructor(
     private val onDevicePanel = combine(
         onDeviceStatuses,
         recPanel,
-    ) { statuses, rec ->
-        OnDevicePanel(statuses, rec)
+        sttManager.statusFlow,
+    ) { statuses, rec, stt ->
+        OnDevicePanel(statuses, rec, stt)
     }
 
     private val backupSelectionFlow = combine(backupDb, backupRecordings) { db, rec -> db to rec }
@@ -236,6 +244,7 @@ class SettingsViewModel @Inject constructor(
             apiKeyInput = key.input,
             keyStatus = key.status,
             onDeviceStatuses = onDevice.statuses,
+            sttStatus = onDevice.stt,
             nano = nano,
             recommendation = onDevice.rec.recommendation,
             activeModelFileName = onDevice.rec.activeFileName,
@@ -468,6 +477,22 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             modelManager.delete(spec)
             onDeviceStatuses.update { it + (spec.id to ModelStatus.NotInstalled) }
+        }
+    }
+
+    // --- 온디바이스 음성 인식 (STT) ---
+
+    /** 세 파일(모델·토큰·VAD) 중 빠진 것만 받는다 */
+    fun downloadStt() {
+        viewModelScope.launch { sttManager.startDownload() }
+    }
+
+    fun cancelSttDownload() = sttManager.cancelDownload()
+
+    fun deleteStt() {
+        viewModelScope.launch {
+            onDeviceTranscriber.unload() // 네이티브 메모리 해제 후 파일 삭제
+            sttManager.delete()
         }
     }
 

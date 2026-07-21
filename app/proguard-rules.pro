@@ -79,3 +79,9 @@
 # (WorkManager consumer 규칙에 포함되지만, 모델 다운로드에 필수라 명시한다.)
 # ==========================================================================
 -keep class com.mingeek.opiczh.core.ai.ondevice.ModelDownloadWorker { <init>(...); }
+
+# ==========================================================================
+# sherpa-onnx (온디바이스 STT) — JNI가 이름으로 Kotlin 클래스/필드를 참조한다.
+# ==========================================================================
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-dontwarn com.k2fsa.sherpa.onnx.**

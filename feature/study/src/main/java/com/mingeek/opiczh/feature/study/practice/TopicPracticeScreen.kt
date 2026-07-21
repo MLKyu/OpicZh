@@ -215,8 +215,13 @@ private fun PracticeContent(
 
         if (uiState.onDeviceOnly) {
             Text(
-                text = "온디바이스 모드: 음성 채점은 클라우드 전용이라 텍스트 답변으로 연습합니다. " +
-                    "말하기 연습 후 답한 내용을 적어 채점받아 보세요.",
+                text = if (uiState.sttReady) {
+                    "온디바이스 모드: 녹음 답변을 기기 안에서 전사해 채점합니다 — " +
+                        "발음·유창성 축이 빠진 임시 채점이며 전사 오차가 있을 수 있습니다."
+                } else {
+                    "온디바이스 모드: 음성 채점은 텍스트 답변으로 연습합니다. " +
+                        "설정에서 음성 인식 모델을 받으면 말하기(녹음) 채점도 됩니다."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
             )
